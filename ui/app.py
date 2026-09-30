@@ -7,6 +7,28 @@ from PIL import Image, ImageOps
 from st_img_selector import st_img_selector
 
 
+@st.cache_data(show_spinner=False, max_entries=256)
+def cached_gallery_thumbnail(
+    image_path: str,
+    modified_ns: int,
+    card_size: tuple[int, int],
+) -> Image.Image:
+    """Build and cache a gallery thumbnail until its source file changes."""
+    del modified_ns  # Included in the cache key to invalidate modified images.
+    card_width, card_height = card_size
+    card = Image.new("RGB", card_size, "#171D33")
+
+    with Image.open(image_path) as source:
+        source.draft("RGB", (card_width - 20, card_height - 20))
+        preview = ImageOps.exif_transpose(source).convert("RGB")
+        preview.thumbnail((card_width - 20, card_height - 20))
+
+    left = (card_width - preview.width) // 2
+    top = (card_height - preview.height) // 2
+    card.paste(preview, (left, top))
+    return card
+
+
 class LunaVaultUI:
     CARD_SIZE = (420, 248)
     CHUNK_SIZE = 1024 * 1024
@@ -58,17 +80,11 @@ class LunaVaultUI:
         return stored_name
 
     def create_gallery_thumbnail(self, image_path: Path) -> Image.Image:
-        card_width, card_height = self.CARD_SIZE
-        card = Image.new("RGB", self.CARD_SIZE, "#171D33")
-
-        with Image.open(image_path) as source:
-            preview = ImageOps.exif_transpose(source).convert("RGB")
-            preview.thumbnail((card_width - 20, card_height - 20))
-
-        left = (card_width - preview.width) // 2
-        top = (card_height - preview.height) // 2
-        card.paste(preview, (left, top))
-        return card
+        return cached_gallery_thumbnail(
+            str(image_path),
+            image_path.stat().st_mtime_ns,
+            self.CARD_SIZE,
+        )
 
     def render_gallery_navigation(self, page_count: int, state_key: str, key_prefix: str) -> int:
         current_page = min(max(st.session_state[state_key], 0), page_count - 1)
@@ -167,8 +183,7 @@ class UploadPage(LunaVaultUI):
 
 # ---------------- View Page ----------------
 class ViewPage(LunaVaultUI):
-    def render(self) -> None:
-        vault_images = self.list_vault_images()
+    def render(self, vault_images: list[Path]) -> None:
         if not vault_images:
             st.session_state.view_page = 0
             st.info("No images are currently stored in Luna Vault.")
@@ -244,8 +259,7 @@ class DeletePage(LunaVaultUI):
         st.session_state.gallery_page = min(st.session_state.gallery_page, remaining_pages - 1)
         st.session_state.view_page = min(st.session_state.view_page, remaining_pages - 1)
 
-    def render(self) -> None:
-        vault_images = self.list_vault_images()
+    def render(self, vault_images: list[Path]) -> None:
         if not vault_images:
             st.session_state.gallery_page = 0
             st.session_state.gallery_selection = set()
@@ -326,10 +340,12 @@ def main() -> None:
     )
     with upload_tab:
         UploadPage(image_dir).render()
+
+    vault_images = LunaVaultUI(image_dir).list_vault_images()
     with view_tab:
-        ViewPage(image_dir).render()
+        ViewPage(image_dir).render(vault_images)
     with delete_tab:
-        DeletePage(image_dir).render()
+        DeletePage(image_dir).render(vault_images)
 
 
 if __name__ == "__main__":

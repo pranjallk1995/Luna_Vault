@@ -29,7 +29,7 @@ services:
       - "127.0.0.1:18000:8000"
     volumes:
       - ./mcp:/workspace/mcp
-      - image_data:/data/images:ro
+      - image_data:/data/images
     networks:
       - lunavault_network
     depends_on:
