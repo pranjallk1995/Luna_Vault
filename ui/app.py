@@ -4,11 +4,15 @@ from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
+from PIL import Image, ImageDraw, ImageOps
+from st_img_selector import st_img_selector
 
 
 class LunaVaultUI:
+    CARD_SIZE = (420, 300)
     CHUNK_SIZE = 1024 * 1024
     GALLERY_COLUMNS = 3
+    IMAGES_PER_PAGE = 6
     IMAGE_EXTENSIONS = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
 
     def __init__(self, image_dir: Path) -> None:
@@ -25,6 +29,10 @@ class LunaVaultUI:
             st.session_state.uploader_key = 0
         if "gallery_generation" not in st.session_state:
             st.session_state.gallery_generation = 0
+        if "gallery_page" not in st.session_state:
+            st.session_state.gallery_page = 0
+        if "gallery_selection" not in st.session_state:
+            st.session_state.gallery_selection = set()
         if "pending_delete" not in st.session_state:
             st.session_state.pending_delete = []
 
@@ -60,9 +68,6 @@ class LunaVaultUI:
                 st.session_state.saved_uploads.add(upload_id)
                 st.session_state.uploaded_images.append(
                     {
-                        "File": upload.name,
-                        "Type": upload.type or "Unknown",
-                        "Size": f"{upload.size / (1024 * 1024):.2f} MiB",
                         "upload_id": upload_id,
                         "stored_name": destination.name,
                     }
@@ -90,9 +95,21 @@ class LunaVaultUI:
                 st.session_state.saved_uploads.discard(image["upload_id"])
             else:
                 retained_uploads.append(image)
+
         st.session_state.uploaded_images = retained_uploads
         st.session_state.pending_delete = []
+        st.session_state.gallery_selection = set()
         st.session_state.gallery_generation += 1
+
+        remaining_pages = max(
+            1,
+            (len(self.list_vault_images()) + self.IMAGES_PER_PAGE - 1)
+            // self.IMAGES_PER_PAGE,
+        )
+        st.session_state.gallery_page = min(
+            st.session_state.gallery_page,
+            remaining_pages - 1,
+        )
 
     @staticmethod
     def clear_ui_state() -> None:
@@ -122,10 +139,28 @@ class LunaVaultUI:
             return original_name
         return stored_name
 
-    @staticmethod
-    def gallery_key(stored_name: str, generation: int) -> str:
-        name_hash = sha256(stored_name.encode("utf-8")).hexdigest()[:16]
-        return f"gallery_{generation}_{name_hash}"
+    def create_gallery_card(self, image_path: Path) -> Image.Image:
+        card_width, card_height = self.CARD_SIZE
+        image_area_height = card_height - 52
+        card = Image.new("RGB", self.CARD_SIZE, "#171D33")
+
+        with Image.open(image_path) as source:
+            preview = ImageOps.exif_transpose(source).convert("RGB")
+            preview.thumbnail((card_width - 20, image_area_height - 20))
+
+        left = (card_width - preview.width) // 2
+        top = (image_area_height - preview.height) // 2
+        card.paste(preview, (left, top))
+
+        display_name = self.display_name(image_path.name)
+        if len(display_name) > 48:
+            display_name = f"{display_name[:45]}..."
+        ImageDraw.Draw(card).text(
+            (12, image_area_height + 16),
+            display_name,
+            fill="#E8EAF3",
+        )
+        return card
 
     def render_upload_page(self) -> None:
         uploads = st.file_uploader(
@@ -137,20 +172,7 @@ class LunaVaultUI:
         if uploads:
             self.upload_images(uploads)
 
-        if not st.session_state.uploaded_images:
-            return
-
-        table_rows = [
-            {
-                "File": image["File"],
-                "Type": image["Type"],
-                "Size": image["Size"],
-            }
-            for image in st.session_state.uploaded_images
-        ]
-        st.dataframe(table_rows, hide_index=True, width="stretch")
-
-        if st.button(
+        if st.session_state.uploaded_images and st.button(
             "Clear",
             icon=":material/refresh:",
             width="stretch",
@@ -158,29 +180,101 @@ class LunaVaultUI:
             self.clear_ui_state()
             st.rerun()
 
+    def render_gallery_navigation(self, page_count: int) -> None:
+        current_page = min(
+            max(st.session_state.gallery_page, 0),
+            page_count - 1,
+        )
+        st.session_state.gallery_page = current_page
+
+        previous_column, page_column, next_column = st.columns([1, 2, 1])
+        if previous_column.button(
+            "Previous",
+            icon=":material/arrow_back:",
+            disabled=current_page == 0,
+            width="stretch",
+        ):
+            st.session_state.gallery_page = current_page - 1
+            st.rerun()
+
+        selected_page = page_column.selectbox(
+            options=list(range(1, page_count + 1)),
+            index=current_page,
+            key=(
+                f"gallery_page_{st.session_state.gallery_generation}_"
+                f"{page_count}"
+            ),
+        )
+        if selected_page - 1 != current_page:
+            st.session_state.gallery_page = selected_page - 1
+            st.rerun()
+
+        if next_column.button(
+            "Next",
+            icon=":material/arrow_forward:",
+            disabled=current_page == page_count - 1,
+            width="stretch",
+        ):
+            st.session_state.gallery_page = current_page + 1
+            st.rerun()
+
     def render_delete_page(self) -> None:
         vault_images = self.list_vault_images()
         if not vault_images:
+            st.session_state.gallery_page = 0
+            st.session_state.gallery_selection = set()
             st.info("No images are currently stored in Luna Vault.")
             return
 
-        selected_names = []
-        generation = st.session_state.gallery_generation
+        vault_names = {image_path.name for image_path in vault_images}
+        st.session_state.gallery_selection.intersection_update(vault_names)
+        st.session_state.pending_delete = [
+            stored_name
+            for stored_name in st.session_state.pending_delete
+            if stored_name in vault_names
+        ]
 
-        for row_start in range(0, len(vault_images), self.GALLERY_COLUMNS):
-            columns = st.columns(self.GALLERY_COLUMNS)
-            row_images = vault_images[
-                row_start : row_start + self.GALLERY_COLUMNS
-            ]
-            for column, image_path in zip(columns, row_images):
-                with column:
-                    st.image(image_path, width="stretch")
-                    st.caption(self.display_name(image_path.name))
-                    if st.checkbox(
-                        "Select",
-                        key=self.gallery_key(image_path.name, generation),
-                    ):
-                        selected_names.append(image_path.name)
+        page_count = (
+            len(vault_images) + self.IMAGES_PER_PAGE - 1
+        ) // self.IMAGES_PER_PAGE
+        self.render_gallery_navigation(page_count)
+
+        current_page = st.session_state.gallery_page
+        page_start = current_page * self.IMAGES_PER_PAGE
+        page_images = vault_images[
+            page_start : page_start + self.IMAGES_PER_PAGE
+        ]
+        page_names = {image_path.name for image_path in page_images}
+        selected_indices = [
+            index
+            for index, image_path in enumerate(page_images)
+            if image_path.name in st.session_state.gallery_selection
+        ]
+        cards = [
+            self.create_gallery_card(image_path)
+            for image_path in page_images
+        ]
+
+        selected_indices = st_img_selector(
+            images=cards,
+            value=selected_indices,
+            corner_radius=10,
+            selection_color="#A78BFA",
+            img_per_row=self.GALLERY_COLUMNS,
+            border_thickness=4,
+            max_row_height=240,
+            key=(
+                f"gallery_selector_{st.session_state.gallery_generation}_"
+                f"{current_page}"
+            ),
+        ) or []
+
+        st.session_state.gallery_selection.difference_update(page_names)
+        st.session_state.gallery_selection.update(
+            page_images[index].name
+            for index in selected_indices
+            if 0 <= index < len(page_images)
+        )
 
         if st.session_state.pending_delete:
             pending_count = len(st.session_state.pending_delete)
@@ -199,15 +293,18 @@ class LunaVaultUI:
                 st.rerun()
             if cancel_column.button("Cancel", width="stretch"):
                 st.session_state.pending_delete = []
+                st.session_state.gallery_selection = set()
                 st.session_state.gallery_generation += 1
                 st.rerun()
         elif st.button(
             "Delete selected",
             icon=":material/delete:",
-            disabled=not selected_names,
+            disabled=not st.session_state.gallery_selection,
             width="stretch",
         ):
-            st.session_state.pending_delete = selected_names
+            st.session_state.pending_delete = sorted(
+                st.session_state.gallery_selection
+            )
             st.rerun()
 
     def render(self) -> None:
