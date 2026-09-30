@@ -8,6 +8,7 @@ import streamlit as st
 
 class LunaVaultUI:
     CHUNK_SIZE = 1024 * 1024
+    GALLERY_COLUMNS = 3
     IMAGE_EXTENSIONS = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
 
     def __init__(self, image_dir: Path) -> None:
@@ -22,8 +23,10 @@ class LunaVaultUI:
             st.session_state.uploaded_images = []
         if "uploader_key" not in st.session_state:
             st.session_state.uploader_key = 0
-        if "delete_index" not in st.session_state:
-            st.session_state.delete_index = 0
+        if "gallery_generation" not in st.session_state:
+            st.session_state.gallery_generation = 0
+        if "pending_delete" not in st.session_state:
+            st.session_state.pending_delete = []
 
     def upload_images(self, uploads: list) -> None:
         pending = []
@@ -60,7 +63,6 @@ class LunaVaultUI:
                         "File": upload.name,
                         "Type": upload.type or "Unknown",
                         "Size": f"{upload.size / (1024 * 1024):.2f} MiB",
-                        "Status": "\u2705 Uploaded",
                         "upload_id": upload_id,
                         "stored_name": destination.name,
                     }
@@ -68,22 +70,29 @@ class LunaVaultUI:
         finally:
             progress.empty()
 
-    def delete_selected_image(self, stored_name: str) -> None:
+    def delete_selected_images(self, stored_names: list[str]) -> None:
         image_root = self.image_dir.resolve()
-        image_path = (self.image_dir / stored_name).resolve()
+        image_paths = []
 
-        if image_path.parent != image_root:
-            raise ValueError("Refusing to delete an image outside the vault directory.")
+        for stored_name in stored_names:
+            image_path = (self.image_dir / stored_name).resolve()
+            if image_path.parent != image_root:
+                raise ValueError("Refusing to delete an image outside the vault directory.")
+            image_paths.append(image_path)
 
-        image_path.unlink(missing_ok=True)
+        for image_path in image_paths:
+            image_path.unlink(missing_ok=True)
 
+        deleted_names = set(stored_names)
         retained_uploads = []
         for image in st.session_state.uploaded_images:
-            if image["stored_name"] == stored_name:
+            if image["stored_name"] in deleted_names:
                 st.session_state.saved_uploads.discard(image["upload_id"])
             else:
                 retained_uploads.append(image)
         st.session_state.uploaded_images = retained_uploads
+        st.session_state.pending_delete = []
+        st.session_state.gallery_generation += 1
 
     @staticmethod
     def clear_ui_state() -> None:
@@ -113,6 +122,11 @@ class LunaVaultUI:
             return original_name
         return stored_name
 
+    @staticmethod
+    def gallery_key(stored_name: str, generation: int) -> str:
+        name_hash = sha256(stored_name.encode("utf-8")).hexdigest()[:16]
+        return f"gallery_{generation}_{name_hash}"
+
     def render_upload_page(self) -> None:
         uploads = st.file_uploader(
             ":material/upload_file: Drag and drop image files",
@@ -131,7 +145,6 @@ class LunaVaultUI:
                 "File": image["File"],
                 "Type": image["Type"],
                 "Size": image["Size"],
-                "Status": image["Status"],
             }
             for image in st.session_state.uploaded_images
         ]
@@ -151,50 +164,50 @@ class LunaVaultUI:
             st.info("No images are currently stored in Luna Vault.")
             return
 
-        st.session_state.delete_index = min(
-            max(st.session_state.delete_index, 0),
-            len(vault_images) - 1,
-        )
-        current_index = st.session_state.delete_index
-        current_image = vault_images[current_index]
+        selected_names = []
+        generation = st.session_state.gallery_generation
 
-        st.caption(
-            f"Image {current_index + 1} of {len(vault_images)} — "
-            f"{self.display_name(current_image.name)}"
-        )
-        st.image(
-            current_image,
-            caption=self.display_name(current_image.name),
-            width="stretch",
-        )
+        for row_start in range(0, len(vault_images), self.GALLERY_COLUMNS):
+            columns = st.columns(self.GALLERY_COLUMNS)
+            row_images = vault_images[
+                row_start : row_start + self.GALLERY_COLUMNS
+            ]
+            for column, image_path in zip(columns, row_images):
+                with column:
+                    st.image(image_path, width="stretch")
+                    st.caption(self.display_name(image_path.name))
+                    if st.checkbox(
+                        "Select",
+                        key=self.gallery_key(image_path.name, generation),
+                    ):
+                        selected_names.append(image_path.name)
 
-        previous_column, next_column = st.columns(2)
-        if previous_column.button(
-            "Previous",
-            disabled=current_index == 0,
-            width="stretch",
-        ):
-            st.session_state.delete_index = current_index - 1
-            st.rerun()
-        if next_column.button(
-            "Next",
-            disabled=current_index == len(vault_images) - 1,
-            width="stretch",
-        ):
-            st.session_state.delete_index = current_index + 1
-            st.rerun()
-
-        if st.button(
-            "Delete selected image",
-            icon=":material/delete:",
-            width="stretch",
-        ):
-            self.delete_selected_image(current_image.name)
-            remaining_count = len(vault_images) - 1
-            st.session_state.delete_index = min(
-                current_index,
-                max(remaining_count - 1, 0),
+        if st.session_state.pending_delete:
+            pending_count = len(st.session_state.pending_delete)
+            st.warning(
+                f"Delete {pending_count} selected "
+                f"{'image' if pending_count == 1 else 'images'}? "
+                "This cannot be undone."
             )
+            confirm_column, cancel_column = st.columns(2)
+            if confirm_column.button(
+                "Confirm deletion",
+                type="primary",
+                width="stretch",
+            ):
+                self.delete_selected_images(st.session_state.pending_delete)
+                st.rerun()
+            if cancel_column.button("Cancel", width="stretch"):
+                st.session_state.pending_delete = []
+                st.session_state.gallery_generation += 1
+                st.rerun()
+        elif st.button(
+            "Delete selected",
+            icon=":material/delete:",
+            disabled=not selected_names,
+            width="stretch",
+        ):
+            st.session_state.pending_delete = selected_names
             st.rerun()
 
     def render(self) -> None:
@@ -203,15 +216,10 @@ class LunaVaultUI:
         st.caption("Upload images to the shared vault.")
         self.initialize_state()
 
-        active_page = st.radio(
-            "View",
-            options=["Upload Images", "Delete Images"],
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        if active_page == "Upload Images":
+        upload_tab, delete_tab = st.tabs(["Upload Images", "Delete Images"])
+        with upload_tab:
             self.render_upload_page()
-        else:
+        with delete_tab:
             self.render_delete_page()
 
 
