@@ -89,11 +89,13 @@ class LunaVaultUI:
     def render_gallery_navigation(self, page_count: int, state_key: str, key_prefix: str) -> int:
         current_page = min(max(st.session_state[state_key], 0), page_count - 1)
         st.session_state[state_key] = current_page
+        selector_key = f"{key_prefix}_page"
 
         previous_column, page_column, next_column = st.columns([1, 2, 1])
         if previous_column.button(":material/arrow_back:", disabled=current_page == 0,
                                   width="stretch", key=f"{key_prefix}_previous"):
             st.session_state[state_key] = current_page - 1
+            st.session_state[selector_key] = current_page
             st.rerun()
 
         selected_page = page_column.selectbox(
@@ -101,7 +103,7 @@ class LunaVaultUI:
             options=list(range(1, page_count + 1)),
             index=current_page,
             label_visibility="collapsed",
-            key=f"{key_prefix}_page",
+            key=selector_key,
         )
         if selected_page - 1 != current_page:
             st.session_state[state_key] = selected_page - 1
@@ -110,6 +112,7 @@ class LunaVaultUI:
         if next_column.button(":material/arrow_forward:", disabled=current_page == page_count - 1,
                               width="stretch", key=f"{key_prefix}_next"):
             st.session_state[state_key] = current_page + 1
+            st.session_state[selector_key] = current_page + 2
             st.rerun()
 
         return current_page
