@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lunavault
+      POSTGRES_USER: lunavault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lunavault-dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lunavault_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lunavault -d lunavault"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mcp:
+    build: ./mcp
+    working_dir: /workspace/mcp
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@postgres:5432/lunavault
+      IMAGE_DIR: /data/images
+    expose:
+      - "8000"
+    volumes:
+      - ./mcp:/workspace/mcp
+      - image_data:/data/images:ro
+    networks:
+      - lunavault_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), 2); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ui:
+    build: ./ui
+    working_dir: /workspace/ui
+    restart: unless-stopped
+    environment:
+      IMAGE_DIR: /data/images
+      MCP_URL: http://mcp:8000/mcp
+    ports:
+      - "127.0.0.1:18501:8501"
+    volumes:
+      - ./ui:/workspace/ui
+      - image_data:/data/images
+    networks:
+      - lunavault_network
+    depends_on:
+      mcp:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  image_data:
+
+networks:
+  lunavault_network:
+    driver: bridge
