@@ -88,4 +88,3 @@ volumes:
 networks:
   lunavault_network:
     driver: bridge
-
