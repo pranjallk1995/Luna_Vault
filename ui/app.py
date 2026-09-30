@@ -8,6 +8,7 @@ import streamlit as st
 
 class LunaVaultUI:
     CHUNK_SIZE = 1024 * 1024
+    IMAGE_EXTENSIONS = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
 
     def __init__(self, image_dir: Path) -> None:
         self.image_dir = image_dir
@@ -21,6 +22,8 @@ class LunaVaultUI:
             st.session_state.uploaded_images = []
         if "uploader_key" not in st.session_state:
             st.session_state.uploader_key = 0
+        if "delete_index" not in st.session_state:
+            st.session_state.delete_index = 0
 
     def upload_images(self, uploads: list) -> None:
         pending = []
@@ -65,17 +68,22 @@ class LunaVaultUI:
         finally:
             progress.empty()
 
-    def delete_selected_image(self, selected_index: int) -> None:
-        selected = st.session_state.uploaded_images[selected_index - 1]
+    def delete_selected_image(self, stored_name: str) -> None:
         image_root = self.image_dir.resolve()
-        image_path = (self.image_dir / selected["stored_name"]).resolve()
+        image_path = (self.image_dir / stored_name).resolve()
 
         if image_path.parent != image_root:
             raise ValueError("Refusing to delete an image outside the vault directory.")
 
         image_path.unlink(missing_ok=True)
-        st.session_state.saved_uploads.discard(selected["upload_id"])
-        del st.session_state.uploaded_images[selected_index - 1]
+
+        retained_uploads = []
+        for image in st.session_state.uploaded_images:
+            if image["stored_name"] == stored_name:
+                st.session_state.saved_uploads.discard(image["upload_id"])
+            else:
+                retained_uploads.append(image)
+        st.session_state.uploaded_images = retained_uploads
 
     @staticmethod
     def clear_ui_state() -> None:
@@ -83,7 +91,38 @@ class LunaVaultUI:
         st.session_state.saved_uploads = set()
         st.session_state.uploader_key += 1
 
-    def render_uploaded_images(self) -> None:
+    def list_vault_images(self) -> list[Path]:
+        return sorted(
+            (
+                path
+                for path in self.image_dir.iterdir()
+                if path.is_file() and path.suffix.lower() in self.IMAGE_EXTENSIONS
+            ),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+
+    @staticmethod
+    def display_name(stored_name: str) -> str:
+        prefix, separator, original_name = stored_name.partition("_")
+        if (
+            separator
+            and len(prefix) == 32
+            and all(character in "0123456789abcdef" for character in prefix.lower())
+        ):
+            return original_name
+        return stored_name
+
+    def render_upload_page(self) -> None:
+        uploads = st.file_uploader(
+            ":material/upload_file: Drag and drop image files",
+            type=["png", "jpg", "jpeg", "gif", "webp"],
+            accept_multiple_files=True,
+            key=f"image_uploader_{st.session_state.uploader_key}",
+        )
+        if uploads:
+            self.upload_images(uploads)
+
         if not st.session_state.uploaded_images:
             return
 
@@ -98,32 +137,6 @@ class LunaVaultUI:
         ]
         st.dataframe(table_rows, hide_index=True, width="stretch")
 
-        image_count = len(st.session_state.uploaded_images)
-        selected_index = st.select_slider(
-            "Browse uploaded images",
-            options=list(range(1, image_count + 1)),
-            value=1,
-            key=f"image_browser_{image_count}_{st.session_state.uploader_key}",
-            help="Move the slider to preview an uploaded image.",
-        )
-        selected = st.session_state.uploaded_images[selected_index - 1]
-        selected_path = self.image_dir / selected["stored_name"]
-
-        if selected_path.is_file():
-            st.image(
-                selected_path,
-                caption=selected["File"],
-                width="stretch",
-            )
-
-        if st.button(
-            "Delete selected image",
-            icon=":material/delete:",
-            width="stretch",
-        ):
-            self.delete_selected_image(selected_index)
-            st.rerun()
-
         if st.button(
             "Clear",
             icon=":material/refresh:",
@@ -132,22 +145,74 @@ class LunaVaultUI:
             self.clear_ui_state()
             st.rerun()
 
+    def render_delete_page(self) -> None:
+        vault_images = self.list_vault_images()
+        if not vault_images:
+            st.info("No images are currently stored in Luna Vault.")
+            return
+
+        st.session_state.delete_index = min(
+            max(st.session_state.delete_index, 0),
+            len(vault_images) - 1,
+        )
+        current_index = st.session_state.delete_index
+        current_image = vault_images[current_index]
+
+        st.caption(
+            f"Image {current_index + 1} of {len(vault_images)} — "
+            f"{self.display_name(current_image.name)}"
+        )
+        st.image(
+            current_image,
+            caption=self.display_name(current_image.name),
+            width="stretch",
+        )
+
+        previous_column, next_column = st.columns(2)
+        if previous_column.button(
+            "Previous",
+            disabled=current_index == 0,
+            width="stretch",
+        ):
+            st.session_state.delete_index = current_index - 1
+            st.rerun()
+        if next_column.button(
+            "Next",
+            disabled=current_index == len(vault_images) - 1,
+            width="stretch",
+        ):
+            st.session_state.delete_index = current_index + 1
+            st.rerun()
+
+        if st.button(
+            "Delete selected image",
+            icon=":material/delete:",
+            width="stretch",
+        ):
+            self.delete_selected_image(current_image.name)
+            remaining_count = len(vault_images) - 1
+            st.session_state.delete_index = min(
+                current_index,
+                max(remaining_count - 1, 0),
+            )
+            st.rerun()
+
     def render(self) -> None:
         st.set_page_config(page_title="Luna Vault")
         st.title(":material/photo_library: Luna Vault")
         st.caption("Upload images to the shared vault.")
         self.initialize_state()
 
-        uploads = st.file_uploader(
-            ":material/upload_file: Drag and drop image files",
-            type=["png", "jpg", "jpeg", "gif", "webp"],
-            accept_multiple_files=True,
-            key=f"image_uploader_{st.session_state.uploader_key}",
+        active_page = st.radio(
+            "View",
+            options=["Upload Images", "Delete Images"],
+            horizontal=True,
+            label_visibility="collapsed",
         )
-        if uploads:
-            self.upload_images(uploads)
-
-        self.render_uploaded_images()
+        if active_page == "Upload Images":
+            self.render_upload_page()
+        else:
+            self.render_delete_page()
 
 
 def main() -> None:
