@@ -25,6 +25,8 @@ services:
       IMAGE_DIR: /data/images
     expose:
       - "8000"
+    ports:
+      - "127.0.0.1:18000:8000"
     volumes:
       - ./mcp:/workspace/mcp
       - image_data:/data/images:ro
