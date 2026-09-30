@@ -189,8 +189,7 @@ class LunaVaultUI:
 
         previous_column, page_column, next_column = st.columns([1, 2, 1])
         if previous_column.button(
-            "Previous",
-            icon=":material/arrow_back:",
+            "← Previous",
             disabled=current_page == 0,
             width="stretch",
         ):
@@ -198,8 +197,10 @@ class LunaVaultUI:
             st.rerun()
 
         selected_page = page_column.selectbox(
+            "Page",
             options=list(range(1, page_count + 1)),
             index=current_page,
+            label_visibility="collapsed",
             key=(
                 f"gallery_page_{st.session_state.gallery_generation}_"
                 f"{page_count}"
@@ -210,8 +211,7 @@ class LunaVaultUI:
             st.rerun()
 
         if next_column.button(
-            "Next",
-            icon=":material/arrow_forward:",
+            "Next →",
             disabled=current_page == page_count - 1,
             width="stretch",
         ):
