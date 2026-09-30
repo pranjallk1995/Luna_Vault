@@ -316,10 +316,13 @@ def main() -> None:
 
     st.set_page_config(page_title="Luna Vault")
     st.title(":material/photo_library: Luna Vault")
-    st.caption("Upload images to the shared vault.")
 
     upload_tab, view_tab, delete_tab = st.tabs(
-        ["Upload Images", "View Images", "Delete Images"]
+        [
+            ":material/upload: Upload Images",
+            ":material/visibility: View Images",
+            ":material/delete: Delete Images"
+        ]
     )
     with upload_tab:
         UploadPage(image_dir).render()
