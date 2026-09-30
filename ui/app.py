@@ -1,10 +1,13 @@
-import os
+import base64
 from pathlib import Path
 from hashlib import sha256
 from uuid import uuid4
+import httpx
 import streamlit as st
 from PIL import Image, ImageOps
 from st_img_selector import st_img_selector
+
+from config import UIConfig
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -30,14 +33,9 @@ def cached_gallery_thumbnail(
 
 
 class LunaVaultUI:
-    CARD_SIZE = (420, 248)
-    CHUNK_SIZE = 1024 * 1024
-    GALLERY_COLUMNS = 3
-    IMAGES_PER_PAGE = 6
-    IMAGE_EXTENSIONS = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
-
-    def __init__(self, image_dir: Path) -> None:
-        self.image_dir = image_dir
+    def __init__(self, config: UIConfig) -> None:
+        self.config = config
+        self.image_dir = config.image_dir
         self.image_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -62,7 +60,7 @@ class LunaVaultUI:
             (
                 path
                 for path in self.image_dir.iterdir()
-                if path.is_file() and path.suffix.lower() in self.IMAGE_EXTENSIONS
+                if path.is_file() and path.suffix.lower() in self.config.image_extensions
             ),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
@@ -83,7 +81,7 @@ class LunaVaultUI:
         return cached_gallery_thumbnail(
             str(image_path),
             image_path.stat().st_mtime_ns,
-            self.CARD_SIZE,
+            self.config.card_size,
         )
 
     def render_gallery_navigation(self, page_count: int, state_key: str, key_prefix: str) -> int:
@@ -118,15 +116,23 @@ class LunaVaultUI:
         return current_page
 
     def paginated_images(self, vault_images: list[Path], page_state_key: str, key_prefix: str) -> tuple[int, list[Path]]:
-        page_count = (len(vault_images) + self.IMAGES_PER_PAGE - 1) // self.IMAGES_PER_PAGE
+        page_count = (len(vault_images) + self.config.images_per_page - 1) // self.config.images_per_page
         current_page = self.render_gallery_navigation(page_count, page_state_key, f"{key_prefix}_{page_count}")
-        page_start = current_page * self.IMAGES_PER_PAGE
-        return current_page, vault_images[page_start: page_start + self.IMAGES_PER_PAGE]
+        page_start = current_page * self.config.images_per_page
+        return current_page, vault_images[page_start: page_start + self.config.images_per_page]
 
-    def render_filename_row(self, row_images: list[Path]) -> None:
-        filename_columns = st.columns(self.GALLERY_COLUMNS)
+    def render_filename_row(
+        self,
+        row_images: list[Path],
+        metadata_by_name: dict[str, dict] | None = None,
+    ) -> None:
+        filename_columns = st.columns(self.config.gallery_columns)
         for column, image_path in zip(filename_columns, row_images):
             column.caption(self.display_name(image_path.name))
+            metadata = (metadata_by_name or {}).get(image_path.name)
+            if metadata:
+                column.write(metadata["caption"])
+                column.caption(" Â· ".join(f"#{tag}" for tag in metadata["tags"]))
 
 
 # ---------------- Upload Page ----------------
@@ -149,17 +155,30 @@ class UploadPage(LunaVaultUI):
         try:
             for upload, upload_id, content in pending:
                 safe_name = Path(upload.name).name
-                destination = self.image_dir / f"{uuid4().hex}_{safe_name}"
-                with destination.open("wb") as image_file:
-                    for offset in range(0, len(content), self.CHUNK_SIZE):
-                        chunk = content[offset: offset + self.CHUNK_SIZE]
-                        image_file.write(chunk)
-                        written_bytes += len(chunk)
-                        progress.progress(written_bytes / total_bytes if total_bytes else 1.0,
-                                          text=f"Uploading {safe_name}")
-
+                stored_name = f"{uuid4().hex}_{safe_name}"
+                progress.progress(
+                    written_bytes / total_bytes if total_bytes else 0.0,
+                    text=f"Analyzing {safe_name}",
+                )
+                response = httpx.post(
+                    f"{self.config.api_url}/api/images",
+                    json={
+                        "name": stored_name,
+                        "content_base64": base64.b64encode(content).decode("ascii"),
+                    },
+                    timeout=360.0,
+                )
+                response.raise_for_status()
+                metadata = response.json()
+                written_bytes += len(content)
+                progress.progress(
+                    written_bytes / total_bytes if total_bytes else 1.0,
+                    text=f"Saved {safe_name}",
+                )
                 st.session_state.saved_uploads.add(upload_id)
-                st.session_state.uploaded_images.append({"upload_id": upload_id, "stored_name": destination.name})
+                st.session_state.uploaded_images.append(
+                    {"upload_id": upload_id, **metadata}
+                )
         finally:
             progress.empty()
 
@@ -179,6 +198,11 @@ class UploadPage(LunaVaultUI):
         if uploads:
             self.upload_images(uploads)
 
+        for image in st.session_state.uploaded_images:
+            with st.container(border=True):
+                st.caption(self.display_name(image["name"]))
+                st.write(image["caption"])
+                st.caption(" Â· ".join(f"#{tag}" for tag in image["tags"]))
         if st.session_state.uploaded_images and st.button("Clear", icon=":material/refresh:", width="stretch"):
             self.clear_ui_state()
             st.rerun()
@@ -186,7 +210,7 @@ class UploadPage(LunaVaultUI):
 
 # ---------------- View Page ----------------
 class ViewPage(LunaVaultUI):
-    def render(self, vault_images: list[Path]) -> None:
+    def render(self, vault_images: list[Path], metadata_by_name: dict[str, dict]) -> None:
         if not vault_images:
             st.session_state.view_page = 0
             st.info("No images are currently stored in Luna Vault.")
@@ -196,20 +220,20 @@ class ViewPage(LunaVaultUI):
         current_page, page_images = self.paginated_images(vault_images, "view_page", f"view_{generation}")
         clicked_image = None
 
-        for row_start in range(0, len(page_images), self.GALLERY_COLUMNS):
-            row_images = page_images[row_start: row_start + self.GALLERY_COLUMNS]
+        for row_start in range(0, len(page_images), self.config.gallery_columns):
+            row_images = page_images[row_start: row_start + self.config.gallery_columns]
             thumbnails = [self.create_gallery_thumbnail(image_path) for image_path in row_images]
             clicked_indices = st_img_selector(
                 images=thumbnails,
                 value=[],
                 corner_radius=10,
                 selection_color="#A78BFA",
-                img_per_row=self.GALLERY_COLUMNS,
+                img_per_row=self.config.gallery_columns,
                 border_thickness=4,
                 max_row_height=240,
                 key=f"view_selector_{generation}_{current_page}_{row_start}",
             ) or []
-            self.render_filename_row(row_images)
+            self.render_filename_row(row_images, metadata_by_name)
 
             if clicked_indices and clicked_image is None:
                 clicked_index = clicked_indices[-1]
@@ -239,7 +263,11 @@ class DeletePage(LunaVaultUI):
             image_paths.append(image_path)
 
         for image_path in image_paths:
-            image_path.unlink(missing_ok=True)
+            response = httpx.delete(
+                f"{self.config.api_url}/api/images/{image_path.name}",
+                timeout=30.0,
+            )
+            response.raise_for_status()
 
         deleted_names = set(stored_names)
         retained_uploads = []
@@ -257,7 +285,7 @@ class DeletePage(LunaVaultUI):
 
         remaining_pages = max(
             1,
-            (len(self.list_vault_images()) + self.IMAGES_PER_PAGE - 1) // self.IMAGES_PER_PAGE,
+            (len(self.list_vault_images()) + self.config.images_per_page - 1) // self.config.images_per_page,
         )
         st.session_state.gallery_page = min(st.session_state.gallery_page, remaining_pages - 1)
         st.session_state.view_page = min(st.session_state.view_page, remaining_pages - 1)
@@ -278,8 +306,8 @@ class DeletePage(LunaVaultUI):
         generation = st.session_state.gallery_generation
         current_page, page_images = self.paginated_images(vault_images, "gallery_page", f"delete_{generation}")
 
-        for row_start in range(0, len(page_images), self.GALLERY_COLUMNS):
-            row_images = page_images[row_start: row_start + self.GALLERY_COLUMNS]
+        for row_start in range(0, len(page_images), self.config.gallery_columns):
+            row_images = page_images[row_start: row_start + self.config.gallery_columns]
             row_names = {image_path.name for image_path in row_images}
             selected_indices = [
                 index for index, image_path in enumerate(row_images) if image_path.name in st.session_state.gallery_selection
@@ -290,7 +318,7 @@ class DeletePage(LunaVaultUI):
                 value=selected_indices,
                 corner_radius=10,
                 selection_color="#A78BFA",
-                img_per_row=self.GALLERY_COLUMNS,
+                img_per_row=self.config.gallery_columns,
                 border_thickness=4,
                 max_row_height=240,
                 key=f"delete_selector_{generation}_{current_page}_{row_start}",
@@ -328,8 +356,8 @@ class DeletePage(LunaVaultUI):
 
 # ---------------- Main App ----------------
 def main() -> None:
-    image_dir = Path(os.getenv("IMAGE_DIR", "/data/images"))
-    LunaVaultUI(image_dir).initialize_state()
+    config = UIConfig.from_env()
+    LunaVaultUI(config).initialize_state()
 
     st.set_page_config(page_title="Luna Vault")
     st.title(":material/photo_library: Luna Vault")
@@ -342,14 +370,22 @@ def main() -> None:
         ]
     )
     with upload_tab:
-        UploadPage(image_dir).render()
+        UploadPage(config).render()
 
-    vault_images = LunaVaultUI(image_dir).list_vault_images()
+    metadata_response = httpx.get(f"{config.api_url}/api/metadata", timeout=10.0)
+    metadata_response.raise_for_status()
+    metadata = metadata_response.json()["images"]
+    metadata_by_name = {item["name"]: item for item in metadata}
+    vault_images = [
+        path for path in LunaVaultUI(config).list_vault_images()
+        if path.name in metadata_by_name
+    ]
     with view_tab:
-        ViewPage(image_dir).render(vault_images)
+        ViewPage(config).render(vault_images, metadata_by_name)
     with delete_tab:
-        DeletePage(image_dir).render(vault_images)
+        DeletePage(config).render(vault_images)
 
 
 if __name__ == "__main__":
     main()
+

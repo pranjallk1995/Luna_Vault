@@ -16,6 +16,22 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    gpus: all
+    expose:
+      - "11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - lunavault_network
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   mcp:
     build: ./mcp
     working_dir: /workspace/mcp
@@ -23,6 +39,8 @@ services:
     environment:
       DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@postgres:5432/lunavault
       IMAGE_DIR: /data/images
+      OLLAMA_URL: http://ollama:11434
+      VISION_MODEL: ${VISION_MODEL:-qwen2.5vl:7b}
     expose:
       - "8000"
     ports:
@@ -34,6 +52,8 @@ services:
       - lunavault_network
     depends_on:
       postgres:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), 2); s.close()"]
@@ -48,11 +68,12 @@ services:
     environment:
       IMAGE_DIR: /data/images
       MCP_URL: http://mcp:8000/mcp
+      LUNAVAULT_API_URL: http://mcp:8000
     ports:
       - "127.0.0.1:18501:8501"
     volumes:
       - ./ui:/workspace/ui
-      - image_data:/data/images
+      - image_data:/data/images:ro
     networks:
       - lunavault_network
     depends_on:
@@ -62,7 +83,9 @@ services:
 volumes:
   postgres_data:
   image_data:
+  ollama_data:
 
 networks:
   lunavault_network:
     driver: bridge
+

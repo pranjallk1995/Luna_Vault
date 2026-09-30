@@ -1,38 +1,74 @@
 # Luna Vault
 
-A minimal container foundation for a personal image vault:
+Luna Vault is a private, local image vault with:
 
-- PostgreSQL with pgvector, reachable only from other Compose services.
-- A minimal MCP service at `http://mcp:8000/mcp` on the internal Compose network.
-- A Streamlit upload UI exposed only on the host's loopback interface.
-- A persistent `image_data` volume shared read/write with the UI and read-only with MCP.
+- PostgreSQL metadata and full-text/tag indexes.
+- A FastMCP server with image lifecycle and metadata search tools.
+- Local Ollama vision analysis accelerated by an NVIDIA GPU when available.
+- A Streamlit upload, view, and delete interface.
+- Persistent Docker volumes for database data, images, and Ollama models.
+
+## Vision model
+
+The default model is `qwen2.5vl:7b`. Override it before starting the stack:
+
+```sh
+export VISION_MODEL=qwen2.5vl:7b
+```
+
+Ollama runs only on the private Compose network. No API key or external image service is used. Download the model once into the persistent `ollama_data` volume before starting the full stack:
+
+```sh
+docker compose up -d ollama
+docker compose exec ollama ollama pull qwen2.5vl:7b
+```
 
 ## Run
 
-Optionally set `POSTGRES_PASSWORD` in your shell, then build and start the stack:
+Optionally set `POSTGRES_PASSWORD`, then build and start:
 
 ```sh
 docker compose up --build
 ```
 
-Open the upload UI at <http://127.0.0.1:18501>.
+The first run downloads the configured vision model. Open Luna Vault at <http://127.0.0.1:18501>.
 
-Stop the stack with:
+Check GPU use while analysis is active:
 
 ```sh
-docker compose down
+docker compose exec ollama ollama ps
+nvidia-smi
 ```
 
-The UI's restrained dark theme is configured in `ui/.streamlit/config.toml` and copied into the UI image with the application source.
+If NVIDIA passthrough is unavailable, remove `gpus: all` from the Ollama service to use the CPU fallback. Captioning will still work but will be slower.
+
+## Metadata and search
+
+Every add, upload, or replacement is analyzed before it is committed. The generated caption, normalized tags, content hash, model name, and timestamps are stored in PostgreSQL. Deletion removes the file and its metadata consistently.
+
+The MCP tool:
+
+```text
+search_images(
+  query: str = "",
+  tags: list[str] | None = None,
+  match_all_tags: bool = False,
+  limit: int = 50,
+  offset: int = 0
+)
+```
+
+returns `{query, normalized_query, count, results[]}`, where each result contains `name`, `caption`, `tags`, and `updated_at`. Search reads the metadata index and never opens original images. PostgreSQL uses a generated weighted `tsvector` with a GIN index for English caption/tag full-text search and a second GIN index for tag array queries.
+
+Run or resume an idempotent metadata backfill through the MCP `backfill_metadata` tool after importing images outside the normal ingestion flow.
 
 ## Development
 
-The local `ui/` and `mcp/` directories are bind-mounted at `/workspace/ui` and `/workspace/mcp` respectively. Streamlit watches its source and reloads the UI when files in `ui/` change.
-
-The MCP server does not have hot reload configured. After editing files in `mcp/`, restart only that service to load the changes:
+The UI source is bind-mounted at `/workspace/ui` and Streamlit reloads on edits. The MCP source is bind-mounted at `/workspace/mcp`; restart MCP after editing:
 
 ```sh
 docker compose restart mcp
 ```
 
-Named volumes are retained by default. This foundation stores uploads and lets MCP clients list them; image indexing and vector search are intentionally not implemented yet.
+The dark theme is in `ui/.streamlit/config.toml`. Stop the stack with `docker compose down`; named volumes remain.
+
