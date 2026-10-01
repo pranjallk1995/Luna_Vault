@@ -10,18 +10,46 @@ class AppConfig:
     database_url: str
     ollama_url: str
     vision_model: str
-    allowed_formats: dict[str, str] = field(default_factory=lambda: {
-        ".gif": "GIF", ".jpeg": "JPEG", ".jpg": "JPEG",
-        ".png": "PNG", ".webp": "WEBP",
-    })
+    allowed_formats: dict[str, str] = field(
+        default_factory=lambda: {
+            ".gif": "GIF",
+            ".jpeg": "JPEG",
+            ".jpg": "JPEG",
+            ".png": "PNG",
+            ".webp": "WEBP",
+        }
+    )
     max_image_bytes: int = 50 * 1024 * 1024
     max_tags: int = 16
     search_limit_max: int = 100
-    search_stop_words: frozenset[str] = frozenset({
-        "about", "all", "are", "count", "depict", "depicting", "do", "find",
-        "how", "image", "images", "many", "of", "photo", "photos", "picture",
-        "pictures", "show", "showing", "that", "the", "there", "what", "with",
-    })
+    search_stop_words: frozenset[str] = frozenset(
+        {
+            "about",
+            "all",
+            "are",
+            "count",
+            "depict",
+            "depicting",
+            "do",
+            "find",
+            "how",
+            "image",
+            "images",
+            "many",
+            "of",
+            "photo",
+            "photos",
+            "picture",
+            "pictures",
+            "show",
+            "showing",
+            "that",
+            "the",
+            "there",
+            "what",
+            "with",
+        }
+    )
 
     @property
     def max_base64_chars(self) -> int:
@@ -46,4 +74,3 @@ class AppConfig:
             ollama_url=ollama_url,
             vision_model=vision_model,
         )
-

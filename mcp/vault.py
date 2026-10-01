@@ -15,8 +15,6 @@ from database import MetadataRepository
 from vision import OllamaVisionAnalyzer
 
 
-
-
 class ImageVaultService:
     def __init__(
         self,
@@ -58,7 +56,9 @@ class ImageVaultService:
             raise ValueError("Decoded content is not a valid image.") from error
         expected = self.config.allowed_formats[Path(name).suffix.lower()]
         if detected != expected:
-            raise ValueError(f"Image content is {detected}, filename expects {expected}.")
+            raise ValueError(
+                f"Image content is {detected}, filename expects {expected}."
+            )
         return data
 
     @staticmethod
@@ -96,8 +96,12 @@ class ImageVaultService:
         try:
             self._atomic_write(path, data)
             metadata = self.repository.upsert(
-                name, len(data), hashlib.sha256(data).hexdigest(),
-                analysis.caption, analysis.tags, self.analyzer.model,
+                name,
+                len(data),
+                hashlib.sha256(data).hexdigest(),
+                analysis.caption,
+                analysis.tags,
+                self.analyzer.model,
             )
         except Exception:
             if previous is None:
@@ -126,11 +130,17 @@ class ImageVaultService:
 
     def normalize_search_query(self, query: str) -> str:
         words = re.findall(r"[a-z0-9]+", query.lower())
-        return " ".join(word for word in words if word not in self.config.search_stop_words)
+        return " ".join(
+            word for word in words if word not in self.config.search_stop_words
+        )
 
     def search(
-        self, query: str, tags: list[str] | None, match_all_tags: bool,
-        limit: int, offset: int,
+        self,
+        query: str,
+        tags: list[str] | None,
+        match_all_tags: bool,
+        limit: int,
+        offset: int,
     ) -> dict[str, Any]:
         normalized_query = self.normalize_search_query(query)
         normalized_tags = self.analyzer.normalize_tags(tags) if tags else []
@@ -142,8 +152,10 @@ class ImageVaultService:
             normalized_query, normalized_tags, match_all_tags, limit, offset
         )
         return {
-            "query": query, "normalized_query": normalized_query,
-            "count": count, "results": results,
+            "query": query,
+            "normalized_query": normalized_query,
+            "count": count,
+            "results": results,
         }
 
     def backfill(self) -> dict[str, Any]:
@@ -151,7 +163,8 @@ class ImageVaultService:
         analyzed, skipped = [], []
         for path in sorted(self.image_dir.iterdir()):
             if (
-                not path.is_file() or path.is_symlink()
+                not path.is_file()
+                or path.is_symlink()
                 or path.suffix.lower() not in self.config.allowed_formats
             ):
                 continue
@@ -159,7 +172,8 @@ class ImageVaultService:
             digest = hashlib.sha256(data).hexdigest()
             existing = indexed.get(path.name)
             if (
-                existing and existing["content_sha256"] == digest
+                existing
+                and existing["content_sha256"] == digest
                 and existing["analysis_model"] == self.analyzer.model
             ):
                 skipped.append(path.name)
@@ -167,8 +181,7 @@ class ImageVaultService:
             self._persist_analysis(path.name, data)
             analyzed.append(path.name)
         return {
-            "analyzed_count": len(analyzed), "skipped_count": len(skipped),
+            "analyzed_count": len(analyzed),
+            "skipped_count": len(skipped),
             "analyzed": analyzed,
         }
-
-

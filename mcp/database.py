@@ -4,7 +4,6 @@ import psycopg
 
 from config import AppConfig
 
-
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS image_metadata (
     name text PRIMARY KEY,
@@ -78,8 +77,14 @@ class MetadataRepository:
                           analysis_model, updated_at
                 """,
                 (
-                    name, size_bytes, content_sha256, caption, tags,
-                    analysis_model, caption, " ".join(tags),
+                    name,
+                    size_bytes,
+                    content_sha256,
+                    caption,
+                    tags,
+                    analysis_model,
+                    caption,
+                    " ".join(tags),
                 ),
             ).fetchone()
         return self._row_to_metadata(row)
@@ -90,14 +95,12 @@ class MetadataRepository:
 
     def list_all(self) -> list[dict[str, Any]]:
         with psycopg.connect(self.database_url) as connection:
-            rows = connection.execute(
-                """
+            rows = connection.execute("""
                 SELECT name, size_bytes, content_sha256, caption, tags,
                        analysis_model, updated_at
                 FROM image_metadata
                 ORDER BY updated_at DESC, name
-                """
-            ).fetchall()
+                """).fetchall()
         return [self._row_to_metadata(row) for row in rows]
 
     def search(
@@ -119,7 +122,8 @@ class MetadataRepository:
             parameters.append(tags)
         rank_sql = (
             "ts_rank_cd(search_vector, websearch_to_tsquery('english', %s))"
-            if normalized_query else "0"
+            if normalized_query
+            else "0"
         )
         query_parameters = (
             ([normalized_query] if normalized_query else [])

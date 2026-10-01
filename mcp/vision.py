@@ -29,7 +29,7 @@ class OllamaVisionAnalyzer:
                 normalized.append(clean[:60])
         if not normalized:
             raise ValueError("Vision analysis returned no usable tags.")
-        return normalized[:self.max_tags]
+        return normalized[: self.max_tags]
 
     @staticmethod
     def prepare_image(image_data: bytes) -> bytes:
@@ -49,15 +49,17 @@ class OllamaVisionAnalyzer:
             "stream": False,
             "format": schema,
             "options": {"temperature": 0, "num_ctx": 8192},
-            "messages": [{
-                "role": "user",
-                "content": (
-                    "Analyze only the supplied image. Return a concise factual caption "
-                    "and 5-12 lowercase searchable tags covering subjects, objects, "
-                    "setting, colors, and style. Do not infer from a filename."
-                ),
-                "images": [base64.b64encode(image_data).decode("ascii")],
-            }],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Analyze only the supplied image. Return a concise factual caption "
+                        "and 5-12 lowercase searchable tags covering subjects, objects, "
+                        "setting, colors, and style. Do not infer from a filename."
+                    ),
+                    "images": [base64.b64encode(image_data).decode("ascii")],
+                }
+            ],
         }
         with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
             response = client.post(f"{self.base_url}/api/chat", json=payload)
@@ -68,4 +70,3 @@ class OllamaVisionAnalyzer:
         analysis.caption = analysis.caption.strip()
         analysis.tags = self.normalize_tags(analysis.tags)
         return analysis
-

@@ -20,9 +20,12 @@ class FakeRepository:
 
     def upsert(self, name, size_bytes, content_sha256, caption, tags, analysis_model):
         row = {
-            "name": name, "size_bytes": size_bytes,
-            "content_sha256": content_sha256, "caption": caption,
-            "tags": tags, "analysis_model": analysis_model,
+            "name": name,
+            "size_bytes": size_bytes,
+            "content_sha256": content_sha256,
+            "caption": caption,
+            "tags": tags,
+            "analysis_model": analysis_model,
             "updated_at": "test",
         }
         self.rows[name] = row
@@ -36,12 +39,17 @@ class FakeRepository:
 
     def search(self, query, tags, match_all, limit, offset):
         matches = [
-            {"name": row["name"], "caption": row["caption"],
-             "tags": row["tags"], "updated_at": row["updated_at"]}
+            {
+                "name": row["name"],
+                "caption": row["caption"],
+                "tags": row["tags"],
+                "updated_at": row["updated_at"],
+            }
             for row in self.rows.values()
-            if query.rstrip("s") in row["caption"].lower() or any(query.rstrip("s") in tag for tag in row["tags"])
+            if query.rstrip("s") in row["caption"].lower()
+            or any(query.rstrip("s") in tag for tag in row["tags"])
         ]
-        return len(matches), matches[offset:offset + limit]
+        return len(matches), matches[offset : offset + limit]
 
 
 class FakeAnalyzer:
@@ -72,9 +80,7 @@ class ImageVaultServiceTests(unittest.TestCase):
             ollama_url="http://ollama:11434",
             vision_model="test-vision",
         )
-        self.service = ImageVaultService(
-            self.config, self.repository, FakeAnalyzer()
-        )
+        self.service = ImageVaultService(self.config, self.repository, FakeAnalyzer())
 
     def tearDown(self):
         self.temp.cleanup()
@@ -86,6 +92,7 @@ class ImageVaultServiceTests(unittest.TestCase):
         with Image.open(BytesIO(prepared)) as image:
             self.assertLessEqual(max(image.size), 1024)
             self.assertEqual(image.format, "JPEG")
+
     def test_ingest_persists_generated_metadata(self):
         result = self.service.ingest_base64("cat.png", png_payload())
         self.assertEqual(result["caption"], "A tabby cat on a sofa.")
@@ -109,4 +116,3 @@ class ImageVaultServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

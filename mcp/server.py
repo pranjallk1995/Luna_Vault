@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP, Image as MCPImage
@@ -119,5 +119,3 @@ mcp = server.mcp
 
 if __name__ == "__main__":
     server.run()
-
-
