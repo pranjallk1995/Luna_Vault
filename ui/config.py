@@ -13,7 +13,7 @@ class UIConfig:
     thumbnail_padding: int = 20
     chunk_size: int = 1024 * 1024
     gallery_columns: int = 3
-    images_per_page: int = 9
+    images_per_page: int = 6
     image_extensions: frozenset[str] = frozenset(
         {".gif", ".jpeg", ".jpg", ".png", ".webp"}
     )
