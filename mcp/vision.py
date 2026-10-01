@@ -1,7 +1,9 @@
 import base64
 import re
+from io import BytesIO
 
 import httpx
+from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 from config import AppConfig
@@ -29,13 +31,24 @@ class OllamaVisionAnalyzer:
             raise ValueError("Vision analysis returned no usable tags.")
         return normalized[:self.max_tags]
 
+    @staticmethod
+    def prepare_image(image_data: bytes) -> bytes:
+        """Bound vision input cost without changing the stored original."""
+        with Image.open(BytesIO(image_data)) as source:
+            frame = ImageOps.exif_transpose(source).convert("RGB")
+            frame.thumbnail((1024, 1024))
+            output = BytesIO()
+            frame.save(output, format="JPEG", quality=88, optimize=True)
+        return output.getvalue()
+
     def analyze(self, image_data: bytes) -> ImageAnalysis:
+        image_data = self.prepare_image(image_data)
         schema = ImageAnalysis.model_json_schema()
         payload = {
             "model": self.model,
             "stream": False,
             "format": schema,
-            "options": {"temperature": 0},
+            "options": {"temperature": 0, "num_ctx": 8192},
             "messages": [{
                 "role": "user",
                 "content": (
@@ -55,5 +68,4 @@ class OllamaVisionAnalyzer:
         analysis.caption = analysis.caption.strip()
         analysis.tags = self.normalize_tags(analysis.tags)
         return analysis
-
 

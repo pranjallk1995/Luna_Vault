@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from config import AppConfig
 from vault import ImageVaultService
-from vision import ImageAnalysis
+from vision import ImageAnalysis, OllamaVisionAnalyzer
 
 
 class FakeRepository:
@@ -79,6 +79,13 @@ class ImageVaultServiceTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_vision_preprocessing_bounds_dimensions(self):
+        raw = BytesIO()
+        Image.new("RGB", (2400, 1600), "blue").save(raw, format="PNG")
+        prepared = OllamaVisionAnalyzer.prepare_image(raw.getvalue())
+        with Image.open(BytesIO(prepared)) as image:
+            self.assertLessEqual(max(image.size), 1024)
+            self.assertEqual(image.format, "JPEG")
     def test_ingest_persists_generated_metadata(self):
         result = self.service.ingest_base64("cat.png", png_payload())
         self.assertEqual(result["caption"], "A tabby cat on a sofa.")
@@ -102,6 +109,4 @@ class ImageVaultServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
 

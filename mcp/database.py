@@ -15,10 +15,7 @@ CREATE TABLE IF NOT EXISTS image_metadata (
     analysis_model text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    search_vector tsvector GENERATED ALWAYS AS (
-        setweight(to_tsvector('english', coalesce(caption, '')), 'A') ||
-        setweight(to_tsvector('english', array_to_string(tags, ' ')), 'B')
-    ) STORED
+    search_vector tsvector NOT NULL
 );
 CREATE INDEX IF NOT EXISTS image_metadata_search_idx
     ON image_metadata USING gin (search_vector);
@@ -62,19 +59,28 @@ class MetadataRepository:
             row = connection.execute(
                 """
                 INSERT INTO image_metadata
-                    (name, size_bytes, content_sha256, caption, tags, analysis_model)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (name, size_bytes, content_sha256, caption, tags, analysis_model,
+                     search_vector)
+                VALUES (
+                    %s, %s, %s, %s, %s, %s,
+                    setweight(to_tsvector('english', %s), 'A') ||
+                    setweight(to_tsvector('english', %s), 'B')
+                )
                 ON CONFLICT (name) DO UPDATE SET
                     size_bytes = EXCLUDED.size_bytes,
                     content_sha256 = EXCLUDED.content_sha256,
                     caption = EXCLUDED.caption,
                     tags = EXCLUDED.tags,
                     analysis_model = EXCLUDED.analysis_model,
+                    search_vector = EXCLUDED.search_vector,
                     updated_at = now()
                 RETURNING name, size_bytes, content_sha256, caption, tags,
                           analysis_model, updated_at
                 """,
-                (name, size_bytes, content_sha256, caption, tags, analysis_model),
+                (
+                    name, size_bytes, content_sha256, caption, tags,
+                    analysis_model, caption, " ".join(tags),
+                ),
             ).fetchone()
         return self._row_to_metadata(row)
 
@@ -143,5 +149,3 @@ class MetadataRepository:
             for row in rows
         ]
         return count, results
-
-
