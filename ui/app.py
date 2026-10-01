@@ -64,6 +64,7 @@ class LunaVaultUI:
             "hidden_generation": 0,
             "hidden_page": 0,
             "hidden_selection": set(),
+            "pending_hidden_delete": None,
             "hide_generation": 0,
             "hide_page": 0,
             "hide_selection": set(),
@@ -574,8 +575,15 @@ class DownloadPage(LunaVaultUI):
             mime="application/zip",            width="stretch",
         )
 
-    def _selection_gallery(self, images: list[Path], page: int, generation: int,
-                           state_key: str, key_prefix: str) -> None:
+    def _selection_gallery(
+        self,
+        images: list[Path],
+        page: int,
+        generation: int,
+        state_key: str,
+        key_prefix: str,
+        allow_hidden_actions: bool = False,
+    ) -> None:
         for row_start in range(0, len(images), self.config.gallery_columns):
             row_images = images[row_start : row_start + self.config.gallery_columns]
             row_names = {path.name for path in row_images}
@@ -598,6 +606,39 @@ class DownloadPage(LunaVaultUI):
                 row_images[index].name for index in values if 0 <= index < len(row_images)
             )
             self.render_filename_row(row_images)
+
+            if allow_hidden_actions:
+                action_columns = st.columns(self.config.gallery_columns)
+                for column, image_path in zip(action_columns, row_images):
+                    view_column, download_column, delete_column = column.columns(3)
+                    if view_column.button(
+                        ":material/fullscreen:",
+                        help="View full image",
+                        width="stretch",
+                        key=f"hidden_full_{generation}_{page}_{image_path.name}",
+                    ):
+                        @st.dialog(self.display_name(image_path.name), width="large")
+                        def show_hidden_full_image(path: Path = image_path) -> None:
+                            st.image(path, width="stretch")
+
+                        show_hidden_full_image()
+                    download_column.download_button(
+                        ":material/download:",
+                        data=image_path.read_bytes(),
+                        file_name=self.display_name(image_path.name),
+                        mime=f"image/{image_path.suffix.lower().lstrip('.')}",
+                        help="Download image",
+                        width="stretch",
+                        key=f"hidden_download_{generation}_{page}_{image_path.name}",
+                    )
+                    if delete_column.button(
+                        ":material/delete:",
+                        help="Delete hidden image",
+                        width="stretch",
+                        key=f"hidden_delete_{generation}_{page}_{image_path.name}",
+                    ):
+                        st.session_state.pending_hidden_delete = image_path.name
+                        st.rerun()
 
 
 # ---------------- Hidden Page ----------------
@@ -683,19 +724,69 @@ class HiddenPage(DownloadPage):
         st.session_state.gallery_generation += 1
         st.rerun()
 
-    def _render_collection(self, images: list[Path], empty_message: str,
-                           page_key: str, selection_key: str, generation_key: str,
-                           prefix: str, action_label: str, route: str) -> None:
+    def _render_collection(
+        self,
+        images: list[Path],
+        empty_message: str,
+        page_key: str,
+        selection_key: str,
+        generation_key: str,
+        prefix: str,
+        action_label: str,
+        route: str,
+        allow_hidden_actions: bool = False,
+    ) -> None:
         valid_names = {path.name for path in images}
         st.session_state[selection_key].intersection_update(valid_names)
+        if st.session_state.pending_hidden_delete not in valid_names:
+            st.session_state.pending_hidden_delete = None
         if not images:
             st.session_state[page_key] = 0
             st.info(empty_message)
             return
         generation = st.session_state[generation_key]
-        page, page_images = self.paginated_images(images, page_key, f"{prefix}_{generation}")
-        self._selection_gallery(page_images, page, generation, selection_key, prefix)
-        if st.button(
+        page, page_images = self.paginated_images(
+            images, page_key, f"{prefix}_{generation}"
+        )
+        self._selection_gallery(
+            page_images,
+            page,
+            generation,
+            selection_key,
+            prefix,
+            allow_hidden_actions,
+        )
+
+        pending_name = st.session_state.pending_hidden_delete
+        if allow_hidden_actions and pending_name:
+            st.warning(
+                f"Delete {self.display_name(pending_name)}? This cannot be undone."
+            )
+            confirm_column, cancel_column = st.columns(2)
+            if confirm_column.button(
+                "Confirm deletion",
+                type="primary",
+                width="stretch",
+                key="confirm_hidden_delete",
+            ):
+                try:
+                    self._post(
+                        "/api/hidden/delete",
+                        {"names": [pending_name]},
+                        authenticated=True,
+                    )
+                    st.session_state.pending_hidden_delete = None
+                    st.session_state[selection_key].discard(pending_name)
+                    st.session_state.hidden_generation += 1
+                    st.rerun()
+                except httpx.HTTPStatusError as error:
+                    st.error(error.response.json().get("error", "Deletion failed."))
+            if cancel_column.button(
+                "Cancel", width="stretch", key="cancel_hidden_delete"
+            ):
+                st.session_state.pending_hidden_delete = None
+                st.rerun()
+        elif st.button(
             action_label,
             disabled=not st.session_state[selection_key],
             width="stretch",
@@ -769,7 +860,7 @@ class HiddenPage(DownloadPage):
             self._render_collection(
                 hidden_images, "No images are hidden.", "hidden_page",
                 "hidden_selection", "hidden_generation", "hidden",
-                "Restore selected", "/api/hidden/restore"
+                "Restore selected", "/api/hidden/restore", True
             )
         else:
             self._render_collection(

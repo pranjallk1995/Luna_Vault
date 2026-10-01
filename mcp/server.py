@@ -155,6 +155,19 @@ class LunaVaultMCP:
             except Exception as error:
                 return self._error(error)
 
+        @self.mcp.custom_route("/api/hidden/delete", methods=["POST"])
+        async def delete_hidden_images_route(request: Request) -> JSONResponse:
+            try:
+                auth.require(self._token(request))
+                payload = await self._payload(request)
+                names = payload.get("names", [])
+                if not isinstance(names, list) or not names:
+                    raise ValueError("Select at least one hidden image.")
+                deleted = [vault.remove_hidden(name) for name in dict.fromkeys(names)]
+                return JSONResponse({"status": "deleted", "count": len(deleted)})
+            except Exception as error:
+                return self._error(error)
+
         @self.mcp.custom_route("/api/hidden/restore", methods=["POST"])
         async def restore_images_route(request: Request) -> JSONResponse:
             try:

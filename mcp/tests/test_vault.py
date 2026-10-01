@@ -140,6 +140,14 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["normalized_query"], "cats")
         self.assertEqual(result["count"], 1)
 
+    def test_authenticated_hidden_remove_deletes_file_and_metadata(self):
+        self.service.ingest_base64("cat.png", png_payload())
+        self.service.set_hidden(["cat.png"], True)
+        result = self.service.remove_hidden("cat.png")
+        self.assertEqual(result["status"], "deleted")
+        self.assertFalse((Path(self.temp.name) / "cat.png").exists())
+        self.assertNotIn("cat.png", self.repository.rows)
+
     def test_hidden_images_are_excluded_and_protected(self):
         self.service.ingest_base64("cat.png", png_payload())
         self.service.set_hidden(["cat.png"], True)

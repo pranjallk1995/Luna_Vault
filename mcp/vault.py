@@ -124,10 +124,7 @@ class ImageVaultService:
             raise PermissionError("Hidden images require authentication.")
         return path
 
-    def remove(self, name: str) -> dict[str, str]:
-        path = self.visible_path(name)
-        if not path.is_file():
-            raise FileNotFoundError(f"Image {name!r} was not found.")
+    def _remove_path(self, name: str, path: Path) -> dict[str, str]:
         tombstone = path.with_name(f".{path.name}.{uuid4().hex}.deleting")
         path.replace(tombstone)
         try:
@@ -137,6 +134,17 @@ class ImageVaultService:
             raise
         tombstone.unlink(missing_ok=True)
         return {"status": "deleted", "removed_name": name}
+
+    def remove(self, name: str) -> dict[str, str]:
+        return self._remove_path(name, self.visible_path(name))
+
+    def remove_hidden(self, name: str) -> dict[str, str]:
+        path = self.safe_path(name)
+        if not path.is_file():
+            raise FileNotFoundError(f"Image {name!r} was not found.")
+        if not self.repository.is_hidden(name):
+            raise PermissionError("Only hidden images can use this route.")
+        return self._remove_path(name, path)
 
     def metadata(self) -> list[dict[str, Any]]:
         return self.repository.list_all(hidden=False)
