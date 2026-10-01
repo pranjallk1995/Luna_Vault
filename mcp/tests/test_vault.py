@@ -99,6 +99,14 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["tags"], ["cat", "sofa"])
         self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
 
+    def test_replacing_image_adds_ai_modified_tag(self):
+        self.service.ingest_base64("cat.png", png_payload())
+        result = self.service.ingest_base64(
+            "cat.png", png_payload("blue"), replace=True
+        )
+        self.assertEqual(result["tags"], ["cat", "sofa", "ai modified"])
+        self.assertEqual(result["tags"].count("ai modified"), 1)
+
     def test_remove_deletes_file_and_metadata(self):
         self.service.ingest_base64("cat.png", png_payload())
         self.service.remove("cat.png")

@@ -92,6 +92,9 @@ class ImageVaultService:
         if not replace and exists:
             raise FileExistsError(f"Image {name!r} already exists; use modify_image.")
         analysis = self.analyzer.analyze(data)
+        tags = list(analysis.tags)
+        if replace and "ai modified" not in tags:
+            tags.append("ai modified")
         previous = path.read_bytes() if exists else None
         try:
             self._atomic_write(path, data)
@@ -100,7 +103,7 @@ class ImageVaultService:
                 len(data),
                 hashlib.sha256(data).hexdigest(),
                 analysis.caption,
-                analysis.tags,
+                tags,
                 self.analyzer.model,
             )
         except Exception:
