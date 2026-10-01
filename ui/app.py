@@ -1,4 +1,5 @@
 import base64
+import html
 import io
 import zipfile
 from pathlib import Path
@@ -94,6 +95,21 @@ class LunaVaultUI:
             return original_name
         return stored_name
 
+    def render_image_name(self, container, stored_name: str) -> None:
+        display_name = html.escape(self.display_name(stored_name), quote=True)
+        container.markdown(
+            f"""<div title="{display_name}" style="
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                color: rgba(250, 250, 250, 0.6);
+                font-size: 0.875rem;
+                line-height: 1.25rem;
+                margin-bottom: 0.25rem;
+            ">{display_name}</div>""",
+            unsafe_allow_html=True,
+        )
+
     def create_gallery_thumbnail(self, image_path: Path) -> Image.Image:
         return cached_gallery_thumbnail(
             str(image_path),
@@ -164,7 +180,7 @@ class LunaVaultUI:
     ) -> None:
         filename_columns = st.columns(self.config.gallery_columns)
         for column, image_path in zip(filename_columns, row_images):
-            column.caption(self.display_name(image_path.name))
+            self.render_image_name(column, image_path.name)
             metadata = (metadata_by_name or {}).get(image_path.name)
             if metadata:
                 with column.expander("Caption & tags", expanded=False):
@@ -237,7 +253,7 @@ class UploadPage(LunaVaultUI):
 
         for image in st.session_state.uploaded_images:
             with st.container(border=True):
-                st.caption(self.display_name(image["name"]))
+                self.render_image_name(st, image["name"])
                 with st.expander("Caption & tags", expanded=False):
                     st.write(image["caption"])
                     st.caption("  ".join(f"#{tag}" for tag in image["tags"]))
@@ -317,6 +333,7 @@ class ViewImagesPage(LunaVaultUI):
         clear_column.button(
             "Clear",
             key="clear_view_name_search",
+            icon=":material/close:",
             on_click=self.clear_search,
             args=("view_name_search",),
             width="stretch",
@@ -694,6 +711,7 @@ class HiddenPage(DownloadPage):
         clear_column.button(
             "Clear",
             key="clear_hidden_name_search",
+            icon=":material/close:",
             on_click=self.clear_search,
             args=("hidden_name_search",),
             width="stretch",
