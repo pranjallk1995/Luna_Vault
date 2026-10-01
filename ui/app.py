@@ -260,9 +260,8 @@ class UploadPage(LunaVaultUI):
         for image in st.session_state.uploaded_images:
             with st.container(border=True):
                 self.render_image_name(st, image["name"])
-                with st.expander("Caption & tags", expanded=False):
-                    st.write(image["caption"])
-                    st.caption("  ".join(f"#{tag}" for tag in image["tags"]))
+                st.write(image["caption"])
+                st.caption("  ".join(f"#{tag}" for tag in image["tags"]))
         if st.session_state.uploaded_images and st.button(
             "Clear", icon=":material/refresh:", width="stretch"
         ):
