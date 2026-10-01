@@ -1,14 +1,35 @@
 # Luna Vault
 
-Luna Vault is a private, locally hosted image library. It lets you upload, browse,
-search, download, hide, and delete images from a polished Streamlit interface.
-Local Ollama vision analysis automatically creates captions and searchable tags,
-while PostgreSQL stores the metadata and FastMCP exposes safe image-management
-and search tools. Images, database records, and AI models persist in Docker
-volumes, and the password-protected Hidden Images area stays out of normal
-galleries and searches.
+Luna Vault is an AI-powered, private image library that runs locally. Its Ollama
+vision model analyzes every upload automatically, creates a concise caption and
+searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the indexed
+collection available to AI assistants for fast search and safe image-management
+operations without repeatedly opening every original image.
 
-![Example image stored in Luna Vault's hidden gallery](docs/assets/luna-vault-hidden-example.png)
+The Streamlit interface lets you upload, search, view, download, hide, restore,
+and delete images. Image data, metadata, and AI models persist in Docker volumes,
+while the password-protected hidden vault stays separate from normal galleries
+and searches.
+
+<p align="center">
+  <img src="docs/assets/luna-vault-gallery.png" alt="Searchable Luna Vault image gallery" width="720">
+</p>
+
+The main gallery provides filename search, pagination, AI-generated captions and
+tags, full-size viewing, downloads, and deletion controls.
+
+<p align="center">
+  <img src="docs/assets/luna-vault-hidden-gallery.png" alt="Password-protected Luna Vault hidden gallery" width="720">
+</p>
+
+The hidden vault keeps private images behind a password and supports adding,
+viewing, downloading, restoring, searching, and deleting them separately.
+
+<p align="center">
+  <img src="docs/assets/luna-vault-hidden-example.png" alt="Example image stored in Luna Vault's hidden gallery" width="300">
+</p>
+
+An example image stored in the password-protected hidden gallery.
 
 ## Run
 
