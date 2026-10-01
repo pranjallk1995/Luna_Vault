@@ -352,6 +352,7 @@ class DeletePage(LunaVaultUI):
             width="stretch",
         ):
             st.session_state.pending_delete = sorted(st.session_state.gallery_selection)
+            st.rerun()
 
 
 # ---------------- Main App ----------------
