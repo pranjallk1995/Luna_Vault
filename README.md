@@ -1,5 +1,11 @@
 # Luna Vault
 
+![Docker required](https://img.shields.io/badge/Docker-required-2496ED?logo=docker&logoColor=white)
+![Docker Compose v2](https://img.shields.io/badge/Docker_Compose-v2-2496ED?logo=docker&logoColor=white)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Ollama required](https://img.shields.io/badge/Ollama-required-111111?logo=ollama&logoColor=white)
+![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
 ## Generate, Manipulate, Search and Store images of your choice using LLMs.
 
 Luna Vault is an AI-powered, private image library that runs locally. Its Ollama

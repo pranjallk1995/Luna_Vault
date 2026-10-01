@@ -43,7 +43,7 @@ class HiddenVaultAuth:
         now = time.monotonic()
         with self._lock:
             self._sessions = {key: expiry for key, expiry in self._sessions.items() if expiry > now}
-            # Successful activity renews the session without persisting tokens.
+            # Session tokens remain process-local so database access cannot reveal them.
             self._sessions[token] = now + self.session_seconds
         return token
 
@@ -96,6 +96,7 @@ class HiddenVaultAuth:
             if expiry <= now:
                 self._sessions.pop(token or "", None)
                 raise PermissionError("Hidden-vault session is missing or expired.")
+            # Successful activity renews the sliding expiration window.
             self._sessions[token] = now + self.session_seconds
 
     def logout(self, token: str | None) -> None:
