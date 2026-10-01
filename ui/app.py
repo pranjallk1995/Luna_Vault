@@ -1,4 +1,6 @@
-﻿import base64
+import base64
+import io
+import zipfile
 from pathlib import Path
 from hashlib import sha256
 from uuid import uuid4
@@ -50,6 +52,16 @@ class LunaVaultUI:
             "pending_delete": [],
             "view_generation": 0,
             "view_page": 0,
+            "download_generation": 0,
+            "download_page": 0,
+            "download_selection": set(),
+            "hidden_auth_token": None,
+            "hidden_generation": 0,
+            "hidden_page": 0,
+            "hidden_selection": set(),
+            "hide_generation": 0,
+            "hide_page": 0,
+            "hide_selection": set(),
         }
         for key, value in defaults.items():
             if key not in st.session_state:
@@ -283,6 +295,37 @@ class ViewPage(LunaVaultUI):
             show_full_size_image()
 
 
+
+# ---------------- Combined View/Delete Page ----------------
+class ViewImagesPage(LunaVaultUI):
+    def render(
+        self, vault_images: list[Path], metadata_by_name: dict[str, dict]
+    ) -> None:
+        query = st.text_input(
+            "Search by image name",
+            placeholder="Type part of a filename",
+            key="view_name_search",
+            icon=":material/search:",
+        ).strip().casefold()
+        filtered = [
+            path for path in vault_images
+            if query in self.display_name(path.name).casefold()
+        ]
+        mode = st.radio(
+            "Image action",
+            ["Browse", "Delete"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="view_action_mode",
+        )
+        if query and not filtered:
+            st.info("No image names match your search.")
+            return
+        if mode == "Browse":
+            ViewPage(self.config).render(filtered, metadata_by_name)
+        else:
+            DeletePage(self.config).render(filtered)
+
 # ---------------- Delete Page ----------------
 class DeletePage(LunaVaultUI):
     def delete_selected_images(self, stored_names: list[str]) -> None:
@@ -307,7 +350,7 @@ class DeletePage(LunaVaultUI):
         deleted_names = set(stored_names)
         retained_uploads = []
         for image in st.session_state.uploaded_images:
-            if image["stored_name"] in deleted_names:
+            if image["name"] in deleted_names:
                 st.session_state.saved_uploads.discard(image["upload_id"])
             else:
                 retained_uploads.append(image)
@@ -411,6 +454,239 @@ class DeletePage(LunaVaultUI):
             st.session_state.pending_delete = sorted(st.session_state.gallery_selection)
             st.rerun()
 
+# ---------------- Download Page ----------------
+class DownloadPage(LunaVaultUI):
+    def render(self, vault_images: list[Path]) -> None:
+        if not vault_images:
+            st.session_state.download_page = 0
+            st.session_state.download_selection = set()
+            st.info("No images are currently available to download.")
+            return
+
+        vault_names = {path.name for path in vault_images}
+        st.session_state.download_selection.intersection_update(vault_names)
+        generation = st.session_state.download_generation
+        current_page, page_images = self.paginated_images(
+            vault_images, "download_page", f"download_{generation}"
+        )
+        self._selection_gallery(
+            page_images, current_page, generation,
+            "download_selection", "download_selector"
+        )
+
+        selected = [path for path in vault_images if path.name in st.session_state.download_selection]
+        if not selected:
+            st.button("Download selected", icon=":material/download:", disabled=True, width="stretch")
+            return
+
+        archive = io.BytesIO()
+        used_names: set[str] = set()
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+            for path in selected:
+                archive_name = self.display_name(path.name)
+                if archive_name in used_names:
+                    archive_name = path.name
+                used_names.add(archive_name)
+                bundle.write(path, archive_name)
+        st.download_button(
+            f"Download selected ({len(selected)})",
+            data=archive.getvalue(),
+            file_name="luna-vault-images.zip",
+            mime="application/zip",
+            icon=":material/download:",
+            width="stretch",
+        )
+
+    def _selection_gallery(self, images: list[Path], page: int, generation: int,
+                           state_key: str, key_prefix: str) -> None:
+        for row_start in range(0, len(images), self.config.gallery_columns):
+            row_images = images[row_start : row_start + self.config.gallery_columns]
+            row_names = {path.name for path in row_images}
+            selected_indices = [
+                index for index, path in enumerate(row_images)
+                if path.name in st.session_state[state_key]
+            ]
+            values = st_img_selector(
+                images=[self.create_gallery_thumbnail(path) for path in row_images],
+                value=selected_indices,
+                corner_radius=10,
+                selection_color="#A78BFA",
+                img_per_row=self.config.gallery_columns,
+                border_thickness=4,
+                max_row_height=240,
+                key=f"{key_prefix}_{generation}_{page}_{row_start}",
+            ) or []
+            st.session_state[state_key].difference_update(row_names)
+            st.session_state[state_key].update(
+                row_images[index].name for index in values if 0 <= index < len(row_images)
+            )
+            self.render_filename_row(row_images)
+
+
+# ---------------- Hidden Page ----------------
+class HiddenPage(DownloadPage):
+    def _post(self, route: str, payload: dict, authenticated: bool = False) -> dict:
+        headers = {}
+        if authenticated:
+            headers["Authorization"] = f"Bearer {st.session_state.hidden_auth_token}"
+        response = httpx.post(
+            f"{self.config.api_url}{route}", json=payload, headers=headers, timeout=30.0
+        )
+        if response.status_code == 401:
+            st.session_state.hidden_auth_token = None
+        response.raise_for_status()
+        return response.json()
+
+    def _authenticate(self) -> bool:
+        status = httpx.get(f"{self.config.api_url}/api/hidden/status", timeout=10.0)
+        status.raise_for_status()
+        configured = status.json()["configured"]
+        if st.session_state.hidden_auth_token:
+            return True
+
+        if not configured:
+            st.subheader("Create hidden-vault access")
+            st.caption("Choose a password and an 8-digit reset PIN. Store the PIN safely.")
+            with st.form("hidden_setup"):
+                password = st.text_input("Create password", type="password")
+                confirm = st.text_input("Confirm password", type="password")
+                pin = st.text_input("Create reset PIN", type="password", max_chars=8)
+                submitted = st.form_submit_button("Create and unlock", width="stretch")
+            if submitted:
+                if password != confirm:
+                    st.error("Passwords do not match.")
+                else:
+                    try:
+                        result = self._post("/api/hidden/setup", {"password": password, "pin": pin})
+                        st.session_state.hidden_auth_token = result["token"]
+                        st.rerun()
+                    except httpx.HTTPStatusError as error:
+                        st.error(error.response.json().get("error", "Could not create access."))
+            return False
+
+        st.subheader("Unlock hidden images")
+        with st.form("hidden_login"):
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Unlock", width="stretch")
+        if submitted:
+            try:
+                result = self._post("/api/hidden/login", {"password": password})
+                st.session_state.hidden_auth_token = result["token"]
+                st.rerun()
+            except httpx.HTTPStatusError:
+                st.error("Incorrect password.")
+
+        with st.expander("Reset password"):
+            with st.form("hidden_reset"):
+                pin = st.text_input("8-digit reset PIN", type="password", max_chars=8)
+                new_password = st.text_input("New password", type="password")
+                confirm = st.text_input("Confirm new password", type="password")
+                reset = st.form_submit_button("Reset and unlock", width="stretch")
+            if reset:
+                if new_password != confirm:
+                    st.error("Passwords do not match.")
+                else:
+                    try:
+                        result = self._post(
+                            "/api/hidden/reset", {"pin": pin, "new_password": new_password}
+                        )
+                        st.session_state.hidden_auth_token = result["token"]
+                        st.rerun()
+                    except httpx.HTTPStatusError as error:
+                        st.error(error.response.json().get("error", "Password reset failed."))
+        return False
+
+    def _move_selected(self, route: str, state_key: str) -> None:
+        names = sorted(st.session_state[state_key])
+        self._post(route, {"names": names}, authenticated=True)
+        st.session_state[state_key] = set()
+        st.session_state.hidden_generation += 1
+        st.session_state.hide_generation += 1
+        st.session_state.view_generation += 1
+        st.session_state.gallery_generation += 1
+        st.rerun()
+
+    def _render_collection(self, images: list[Path], empty_message: str,
+                           page_key: str, selection_key: str, generation_key: str,
+                           prefix: str, action_label: str, route: str) -> None:
+        valid_names = {path.name for path in images}
+        st.session_state[selection_key].intersection_update(valid_names)
+        if not images:
+            st.session_state[page_key] = 0
+            st.info(empty_message)
+            return
+        generation = st.session_state[generation_key]
+        page, page_images = self.paginated_images(images, page_key, f"{prefix}_{generation}")
+        self._selection_gallery(page_images, page, generation, selection_key, prefix)
+        if st.button(
+            action_label,
+            disabled=not st.session_state[selection_key],
+            width="stretch",
+            key=f"{prefix}_action",
+        ):
+            try:
+                self._move_selected(route, selection_key)
+            except httpx.HTTPStatusError as error:
+                st.error(error.response.json().get("error", "The action failed."))
+
+    def render(self, visible_images: list[Path]) -> None:
+        if not self._authenticate():
+            return
+        header, logout_column = st.columns([3, 1])
+        header.success("Hidden vault unlocked")
+        if logout_column.button("Lock", icon=":material/lock:", width="stretch"):
+            try:
+                self._post("/api/hidden/logout", {}, authenticated=True)
+            finally:
+                st.session_state.hidden_auth_token = None
+                st.rerun()
+
+        try:
+            response = httpx.get(
+                f"{self.config.api_url}/api/hidden/images",
+                headers={"Authorization": f"Bearer {st.session_state.hidden_auth_token}"},
+                timeout=10.0,
+            )
+            if response.status_code == 401:
+                st.session_state.hidden_auth_token = None
+                st.rerun()
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            st.error("Hidden-vault session expired. Please unlock it again.")
+            return
+
+        hidden_names = {item["name"] for item in response.json()["images"]}
+        hidden_images = [path for path in self.list_vault_images() if path.name in hidden_names]
+        mode = st.radio(
+            "Hidden image action", ["Hidden images", "Add images"],
+            horizontal=True, label_visibility="collapsed"
+        )
+        query = st.text_input(
+            "Search hidden vault by image name",
+            placeholder="Type part of a filename",
+            key="hidden_name_search",
+            icon=":material/search:",
+        ).strip().casefold()
+        hidden_images = [
+            path for path in hidden_images
+            if query in self.display_name(path.name).casefold()
+        ]
+        visible_images = [
+            path for path in visible_images
+            if query in self.display_name(path.name).casefold()
+        ]
+        if mode == "Hidden images":
+            self._render_collection(
+                hidden_images, "No images are hidden.", "hidden_page",
+                "hidden_selection", "hidden_generation", "hidden",
+                "Restore selected", "/api/hidden/restore"
+            )
+        else:
+            self._render_collection(
+                visible_images, "No visible images are available.", "hide_page",
+                "hide_selection", "hide_generation", "hide",
+                "Hide selected", "/api/hidden/hide"
+            )
 
 # ---------------- Main App ----------------
 def main() -> None:
@@ -420,11 +696,12 @@ def main() -> None:
     st.set_page_config(page_title="Luna Vault")
     st.title(":material/photo_library: Luna Vault")
 
-    upload_tab, view_tab, delete_tab = st.tabs(
+    upload_tab, download_tab, view_tab, hidden_tab = st.tabs(
         [
             ":material/upload: Upload Images",
+            ":material/download: Download Images",
             ":material/visibility: View Images",
-            ":material/delete: Delete Images",
+            ":material/lock: Hidden Images",
         ]
     )
     with upload_tab:
@@ -439,10 +716,12 @@ def main() -> None:
         for path in LunaVaultUI(config).list_vault_images()
         if path.name in metadata_by_name
     ]
+    with download_tab:
+        DownloadPage(config).render(vault_images)
     with view_tab:
-        ViewPage(config).render(vault_images, metadata_by_name)
-    with delete_tab:
-        DeletePage(config).render(vault_images)
+        ViewImagesPage(config).render(vault_images, metadata_by_name)
+    with hidden_tab:
+        HiddenPage(config).render(vault_images)
 
 
 if __name__ == "__main__":

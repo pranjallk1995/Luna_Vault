@@ -89,6 +89,8 @@ class ImageVaultService:
         exists = path.is_file()
         if replace and not exists:
             raise FileNotFoundError(f"Image {name!r} was not found.")
+        if replace and self.repository.is_hidden(name):
+            raise PermissionError("Hidden images require authentication.")
         if not replace and exists:
             raise FileExistsError(f"Image {name!r} already exists; use modify_image.")
         analysis = self.analyzer.analyze(data)
@@ -114,8 +116,16 @@ class ImageVaultService:
             raise
         return metadata
 
-    def remove(self, name: str) -> dict[str, str]:
+    def visible_path(self, name: str) -> Path:
         path = self.safe_path(name)
+        if not path.is_file():
+            raise FileNotFoundError(f"Image {name!r} was not found.")
+        if self.repository.is_hidden(name):
+            raise PermissionError("Hidden images require authentication.")
+        return path
+
+    def remove(self, name: str) -> dict[str, str]:
+        path = self.visible_path(name)
         if not path.is_file():
             raise FileNotFoundError(f"Image {name!r} was not found.")
         tombstone = path.with_name(f".{path.name}.{uuid4().hex}.deleting")
@@ -129,7 +139,26 @@ class ImageVaultService:
         return {"status": "deleted", "removed_name": name}
 
     def metadata(self) -> list[dict[str, Any]]:
-        return self.repository.list_all()
+        return self.repository.list_all(hidden=False)
+
+    def hidden_metadata(self) -> list[dict[str, Any]]:
+        return self.repository.list_all(hidden=True)
+
+    def set_hidden(self, names: list[str], hidden: bool) -> dict[str, Any]:
+        if not isinstance(names, list) or not names:
+            raise ValueError("Select at least one image.")
+        clean_names = []
+        for name in dict.fromkeys(names):
+            path = self.safe_path(name)
+            if not path.is_file():
+                raise FileNotFoundError(f"Image {name!r} was not found.")
+            clean_names.append(name)
+        changed = self.repository.set_hidden(clean_names, hidden)
+        return {
+            "status": "hidden" if hidden else "restored",
+            "names": changed,
+            "count": len(changed),
+        }
 
     def normalize_search_query(self, query: str) -> str:
         words = re.findall(r"[a-z0-9]+", query.lower())
@@ -162,7 +191,7 @@ class ImageVaultService:
         }
 
     def backfill(self) -> dict[str, Any]:
-        indexed = {item["name"]: item for item in self.repository.list_all()}
+        indexed = {item["name"]: item for item in self.repository.list_all(hidden=None)}
         analyzed, skipped = [], []
         for path in sorted(self.image_dir.iterdir()):
             if (

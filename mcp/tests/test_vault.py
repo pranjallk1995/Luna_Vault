@@ -27,6 +27,7 @@ class FakeRepository:
             "tags": tags,
             "analysis_model": analysis_model,
             "updated_at": "test",
+            "hidden": self.rows.get(name, {}).get("hidden", False),
         }
         self.rows[name] = row
         return row
@@ -34,8 +35,23 @@ class FakeRepository:
     def delete(self, name):
         self.rows.pop(name, None)
 
-    def list_all(self):
-        return list(self.rows.values())
+    def list_all(self, hidden=False):
+        if hidden is None:
+            return list(self.rows.values())
+        return [row for row in self.rows.values() if row.get("hidden", False) == hidden]
+
+    def is_hidden(self, name):
+        if name not in self.rows:
+            raise FileNotFoundError(name)
+        return self.rows[name].get("hidden", False)
+
+    def set_hidden(self, names, hidden):
+        changed = []
+        for name in names:
+            if name in self.rows and self.rows[name].get("hidden", False) != hidden:
+                self.rows[name]["hidden"] = hidden
+                changed.append(name)
+        return changed
 
     def search(self, query, tags, match_all, limit, offset):
         matches = [
@@ -46,8 +62,11 @@ class FakeRepository:
                 "updated_at": row["updated_at"],
             }
             for row in self.rows.values()
-            if query.rstrip("s") in row["caption"].lower()
-            or any(query.rstrip("s") in tag for tag in row["tags"])
+            if not row.get("hidden", False)
+            and (
+                query.rstrip("s") in row["caption"].lower()
+                or any(query.rstrip("s") in tag for tag in row["tags"])
+            )
         ]
         return len(matches), matches[offset : offset + limit]
 
@@ -120,6 +139,18 @@ class ImageVaultServiceTests(unittest.TestCase):
         )
         self.assertEqual(result["normalized_query"], "cats")
         self.assertEqual(result["count"], 1)
+
+    def test_hidden_images_are_excluded_and_protected(self):
+        self.service.ingest_base64("cat.png", png_payload())
+        self.service.set_hidden(["cat.png"], True)
+        self.assertEqual(self.service.metadata(), [])
+        self.assertEqual(len(self.service.hidden_metadata()), 1)
+        with self.assertRaises(PermissionError):
+            self.service.visible_path("cat.png")
+        with self.assertRaises(PermissionError):
+            self.service.remove("cat.png")
+        result = self.service.search("cats", None, False, 50, 0)
+        self.assertEqual(result["count"], 0)
 
 
 if __name__ == "__main__":

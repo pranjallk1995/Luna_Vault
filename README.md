@@ -5,7 +5,7 @@ Luna Vault is a private, local image vault with:
 - PostgreSQL metadata and full-text/tag indexes.
 - A FastMCP server with image lifecycle and metadata search tools.
 - Local Ollama vision analysis accelerated by an NVIDIA GPU when available.
-- A Streamlit upload, view, and delete interface.
+- A Streamlit upload, combined view/delete with filename search, ZIP download, and password-protected hidden-image interface.
 - Persistent Docker volumes for database data, images, and Ollama models.
 
 ## Vision model
@@ -31,7 +31,7 @@ Optionally set `POSTGRES_PASSWORD`, then build and start:
 docker compose up --build
 ```
 
-The first run downloads the configured vision model. Open Luna Vault at <http://127.0.0.1:18501>.
+The first run downloads the configured vision model. Open Luna Vault at <http://127.0.0.1:18501>. The Hidden Images tab lets you create a password and an exactly 8-digit reset PIN; both are salted and hashed in PostgreSQL, and hidden images are excluded from normal galleries and MCP search/view tools.
 
 Check GPU use while analysis is active:
 
@@ -71,4 +71,3 @@ docker compose restart mcp
 ```
 
 The dark theme is in `ui/.streamlit/config.toml`. Stop the stack with `docker compose down`; named volumes remain.
-
