@@ -67,6 +67,10 @@ class LunaVaultUI:
             if key not in st.session_state:
                 st.session_state[key] = value
 
+    @staticmethod
+    def clear_search(state_key: str) -> None:
+        st.session_state[state_key] = ""
+
     def list_vault_images(self) -> list[Path]:
         return sorted(
             (
@@ -301,22 +305,31 @@ class ViewImagesPage(LunaVaultUI):
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
-        query = st.text_input(
+        search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
+        query = search_column.text_input(
             "Search by image name",
             placeholder="Type part of a filename",
             key="view_name_search",
             icon=":material/search:",
         ).strip().casefold()
+        clear_column.button(
+            "Clear",
+            key="clear_view_name_search",
+            on_click=self.clear_search,
+            args=("view_name_search",),
+            width="stretch",
+        )
         filtered = [
             path for path in vault_images
             if query in self.display_name(path.name).casefold()
         ]
-        mode = st.radio(
+        mode = st.segmented_control(
             "Image action",
             ["Browse", "Delete"],
-            horizontal=True,
+            default="Browse",
             label_visibility="collapsed",
             key="view_action_mode",
+            width="stretch",
         )
         if query and not filtered:
             st.info("No image names match your search.")
@@ -657,16 +670,28 @@ class HiddenPage(DownloadPage):
 
         hidden_names = {item["name"] for item in response.json()["images"]}
         hidden_images = [path for path in self.list_vault_images() if path.name in hidden_names]
-        mode = st.radio(
-            "Hidden image action", ["Hidden images", "Add images"],
-            horizontal=True, label_visibility="collapsed"
+        mode = st.segmented_control(
+            "Hidden image action",
+            ["Hidden images", "Add images"],
+            default="Hidden images",
+            label_visibility="collapsed",
+            key="hidden_action_mode",
+            width="stretch",
         )
-        query = st.text_input(
+        search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
+        query = search_column.text_input(
             "Search hidden vault by image name",
             placeholder="Type part of a filename",
             key="hidden_name_search",
             icon=":material/search:",
         ).strip().casefold()
+        clear_column.button(
+            "Clear",
+            key="clear_hidden_name_search",
+            on_click=self.clear_search,
+            args=("hidden_name_search",),
+            width="stretch",
+        )
         hidden_images = [
             path for path in hidden_images
             if query in self.display_name(path.name).casefold()
