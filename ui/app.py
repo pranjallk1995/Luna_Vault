@@ -329,6 +329,10 @@ class ViewImagesPage(LunaVaultUI):
             "Image action",
             ["Browse", "Delete"],
             default="Browse",
+            format_func=lambda option: {
+                "Browse": ":material/visibility: Browse",
+                "Delete": ":material/delete: Delete",
+            }[option],
             label_visibility="collapsed",
             key="view_action_mode",
             width="stretch",
