@@ -330,17 +330,17 @@ class ViewPage(LunaVaultUI):
                         st.caption("  ".join(f"#{tag}" for tag in metadata["tags"]))
                 download_column, delete_column = column.columns(2)
                 download_column.download_button(
-                    "Download",
+                    ":material/download:",
                     data=image_path.read_bytes(),
                     file_name=self.display_name(image_path.name),
                     mime=f"image/{image_path.suffix.lower().lstrip('.')}",
-                    icon=":material/download:",
+                    help="Download image",
                     width="stretch",
                     key=f"view_download_{generation}_{image_path.name}",
                 )
                 if delete_column.button(
-                    "Delete",
-                    icon=":material/delete:",
+                    ":material/delete:",
+                    help="Delete image",
                     width="stretch",
                     key=f"view_delete_{generation}_{image_path.name}",
                 ):
@@ -528,9 +528,7 @@ class DeletePage(LunaVaultUI):
                 st.session_state.gallery_generation += 1
                 st.rerun()
         elif st.button(
-            "Delete selected",
-            icon=":material/delete:",
-            disabled=not st.session_state.gallery_selection,
+            "Delete selected",            disabled=not st.session_state.gallery_selection,
             width="stretch",
         ):
             st.session_state.pending_delete = sorted(st.session_state.gallery_selection)
@@ -574,9 +572,7 @@ class DownloadPage(LunaVaultUI):
             f"Download selected ({len(selected)})",
             data=archive.getvalue(),
             file_name="luna-vault-images.zip",
-            mime="application/zip",
-            icon=":material/download:",
-            width="stretch",
+            mime="application/zip",            width="stretch",
         )
 
     def _selection_gallery(self, images: list[Path], page: int, generation: int,
