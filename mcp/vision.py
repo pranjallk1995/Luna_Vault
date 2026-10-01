@@ -1,3 +1,5 @@
+"""Local Ollama image analysis and metadata normalization."""
+
 import base64
 import re
 from io import BytesIO
@@ -10,17 +12,22 @@ from config import AppConfig
 
 
 class ImageAnalysis(BaseModel):
+    """Validated caption and tag payload returned by the vision model."""
+
     caption: str = Field(min_length=3, max_length=500)
     tags: list[str] = Field(min_length=1, max_length=16)
 
 
 class OllamaVisionAnalyzer:
+    """Generate searchable image metadata with a local Ollama vision model."""
+
     def __init__(self, config: AppConfig) -> None:
         self.base_url = config.ollama_url
         self.model = config.vision_model
         self.max_tags = config.max_tags
 
     def normalize_tags(self, tags: list[str]) -> list[str]:
+        """Normalize, deduplicate, and bound model-generated search tags."""
         normalized = []
         for tag in tags:
             clean = re.sub(r"[^a-z0-9 -]+", "", tag.lower()).strip()
@@ -42,6 +49,7 @@ class OllamaVisionAnalyzer:
         return output.getvalue()
 
     def analyze(self, image_data: bytes) -> ImageAnalysis:
+        """Analyze image bytes and return schema-validated metadata."""
         image_data = self.prepare_image(image_data)
         schema = ImageAnalysis.model_json_schema()
         payload = {

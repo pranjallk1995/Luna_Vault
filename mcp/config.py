@@ -1,3 +1,5 @@
+"""Validated runtime configuration for the Luna Vault backend."""
+
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -6,6 +8,8 @@ from urllib.parse import urlparse
 
 @dataclass(frozen=True)
 class AppConfig:
+    """Immutable backend settings loaded from environment variables."""
+
     image_dir: Path
     database_url: str
     ollama_url: str
@@ -55,10 +59,12 @@ class AppConfig:
 
     @property
     def max_base64_chars(self) -> int:
+        """Return the largest Base64 payload allowed for the byte limit."""
         return 4 * ((self.max_image_bytes + 2) // 3)
 
     @classmethod
     def from_env(cls) -> "AppConfig":
+        """Build and validate backend configuration from the environment."""
         database_url = os.getenv("DATABASE_URL", "").strip()
         if not database_url:
             raise RuntimeError("DATABASE_URL is required.")

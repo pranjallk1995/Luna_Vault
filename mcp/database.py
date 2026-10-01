@@ -1,3 +1,5 @@
+"""PostgreSQL schema management and metadata repository operations."""
+
 from typing import Any
 
 import psycopg
@@ -40,6 +42,8 @@ CREATE TABLE IF NOT EXISTS vault_security (
 
 
 class MetadataRepository:
+    """Persist image metadata, hidden state, credentials, and search indexes."""
+
     def __init__(self, config: AppConfig) -> None:
         self.database_url = config.database_url
 
@@ -52,11 +56,13 @@ class MetadataRepository:
         }
 
     def initialize(self) -> None:
+        """Create or upgrade the idempotent Luna Vault database schema."""
         with psycopg.connect(self.database_url, autocommit=True) as connection:
             connection.execute(SCHEMA_SQL)
 
     def upsert(self, name: str, size_bytes: int, content_sha256: str,
                caption: str, tags: list[str], analysis_model: str) -> dict[str, Any]:
+        """Insert or replace metadata and rebuild its weighted search vector."""
         with psycopg.connect(self.database_url) as connection:
             row = connection.execute(
                 """
@@ -86,6 +92,7 @@ class MetadataRepository:
             connection.execute("DELETE FROM image_metadata WHERE name = %s", (name,))
 
     def list_all(self, hidden: bool | None = False) -> list[dict[str, Any]]:
+        """List visible, hidden, or all records according to ``hidden``."""
         where = "" if hidden is None else "WHERE hidden = %s"
         parameters = () if hidden is None else (hidden,)
         with psycopg.connect(self.database_url) as connection:
@@ -153,6 +160,7 @@ class MetadataRepository:
 
     def search(self, normalized_query: str, tags: list[str], match_all_tags: bool,
                limit: int, offset: int) -> tuple[int, list[dict[str, Any]]]:
+        """Query persisted full-text and tag indexes without opening images."""
         tag_operator = "@>" if match_all_tags else "&&"
         clauses = ["hidden = false"]
         parameters: list[Any] = []

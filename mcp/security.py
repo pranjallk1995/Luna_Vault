@@ -1,3 +1,5 @@
+"""Password, reset-PIN, and session handling for hidden images."""
+
 import hashlib
 import hmac
 import re
@@ -41,10 +43,12 @@ class HiddenVaultAuth:
         now = time.monotonic()
         with self._lock:
             self._sessions = {key: expiry for key, expiry in self._sessions.items() if expiry > now}
+            # Successful activity renews the session without persisting tokens.
             self._sessions[token] = now + self.session_seconds
         return token
 
     def setup(self, password: str, pin: str) -> str:
+        """Create hidden-vault credentials and return a new session token."""
         self.validate_password(password)
         self.validate_pin(pin)
         password_salt, pin_salt = secrets.token_bytes(16), secrets.token_bytes(16)
@@ -57,6 +61,7 @@ class HiddenVaultAuth:
         return self._new_session()
 
     def login(self, password: str) -> str:
+        """Verify the password in constant time and create a session token."""
         credentials = self.repository.security_credentials()
         if credentials is None:
             raise ValueError("Create a hidden-vault password first.")
@@ -66,6 +71,7 @@ class HiddenVaultAuth:
         return self._new_session()
 
     def reset(self, pin: str, new_password: str) -> str:
+        """Replace the password after validating the eight-digit reset PIN."""
         self.validate_pin(pin)
         self.validate_password(new_password)
         credentials = self.repository.security_credentials()
@@ -83,6 +89,7 @@ class HiddenVaultAuth:
         return self._new_session()
 
     def require(self, token: str | None) -> None:
+        """Require a live token and extend its sliding expiration window."""
         now = time.monotonic()
         with self._lock:
             expiry = self._sessions.get(token or "", 0)

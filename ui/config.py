@@ -1,3 +1,5 @@
+"""Validated presentation and service settings for the Streamlit UI."""
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,6 +8,8 @@ from urllib.parse import urlparse
 
 @dataclass(frozen=True)
 class UIConfig:
+    """Immutable UI layout and backend-connection settings."""
+
     image_dir: Path
     api_url: str
     card_size: tuple[int, int] = (420, 248)
@@ -20,6 +24,7 @@ class UIConfig:
 
     @classmethod
     def from_env(cls) -> "UIConfig":
+        """Build and validate UI configuration from environment variables."""
         api_url = os.getenv("LUNAVAULT_API_URL", "http://mcp:8000").rstrip("/")
         parsed = urlparse(api_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:

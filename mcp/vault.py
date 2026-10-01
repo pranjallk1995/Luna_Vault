@@ -1,3 +1,5 @@
+"""Transactional image lifecycle service for Luna Vault."""
+
 import base64
 import binascii
 import hashlib
@@ -16,6 +18,8 @@ from vision import OllamaVisionAnalyzer
 
 
 class ImageVaultService:
+    """Coordinate validated files, AI analysis, and persisted metadata."""
+
     def __init__(
         self,
         config: AppConfig,
@@ -29,6 +33,7 @@ class ImageVaultService:
         self.image_dir.mkdir(parents=True, exist_ok=True)
 
     def safe_path(self, name: str) -> Path:
+        """Resolve a supported plain filename without allowing path escape."""
         if not name or Path(name).name != name or name in {".", ".."}:
             raise ValueError("Image name must be a plain filename without directories.")
         if Path(name).suffix.lower() not in self.config.allowed_formats:
@@ -40,6 +45,7 @@ class ImageVaultService:
         return path
 
     def decode_and_validate(self, name: str, content_base64: str) -> bytes:
+        """Decode a bounded payload and verify its bytes match its extension."""
         if len(content_base64) > self.config.max_base64_chars:
             raise ValueError("Image content exceeds the 50 MiB limit.")
         try:
@@ -63,6 +69,7 @@ class ImageVaultService:
 
     @staticmethod
     def _atomic_write(path: Path, data: bytes) -> None:
+        """Replace a file atomically using a temporary sibling on one volume."""
         temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
         try:
             temporary.write_bytes(data)
@@ -84,6 +91,7 @@ class ImageVaultService:
     def ingest_base64(
         self, name: str, content_base64: str, replace: bool = False
     ) -> dict[str, Any]:
+        """Create or replace an image and persist matching AI metadata."""
         data = self.decode_and_validate(name, content_base64)
         path = self.safe_path(name)
         exists = path.is_file()
@@ -109,6 +117,7 @@ class ImageVaultService:
                 self.analyzer.model,
             )
         except Exception:
+            # Roll the file back if metadata persistence fails after replacement.
             if previous is None:
                 path.unlink(missing_ok=True)
             else:
@@ -117,6 +126,7 @@ class ImageVaultService:
         return metadata
 
     def visible_path(self, name: str) -> Path:
+        """Return an existing non-hidden path or reject protected access."""
         path = self.safe_path(name)
         if not path.is_file():
             raise FileNotFoundError(f"Image {name!r} was not found.")
@@ -153,6 +163,7 @@ class ImageVaultService:
         return self.repository.list_all(hidden=True)
 
     def set_hidden(self, names: list[str], hidden: bool) -> dict[str, Any]:
+        """Move validated images into or out of the logical hidden vault."""
         if not isinstance(names, list) or not names:
             raise ValueError("Select at least one image.")
         clean_names = []
@@ -182,6 +193,7 @@ class ImageVaultService:
         limit: int,
         offset: int,
     ) -> dict[str, Any]:
+        """Search visible persisted metadata using normalized text and tags."""
         normalized_query = self.normalize_search_query(query)
         normalized_tags = self.analyzer.normalize_tags(tags) if tags else []
         if not normalized_query and not normalized_tags:
@@ -199,6 +211,7 @@ class ImageVaultService:
         }
 
     def backfill(self) -> dict[str, Any]:
+        """Analyze unindexed or changed files while skipping current records."""
         indexed = {item["name"]: item for item in self.repository.list_all(hidden=None)}
         analyzed, skipped = [], []
         for path in sorted(self.image_dir.iterdir()):

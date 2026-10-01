@@ -1,3 +1,5 @@
+﻿"""Streamlit pages and reusable gallery controls for Luna Vault."""
+
 import base64
 import html
 import io
@@ -39,6 +41,8 @@ def cached_gallery_thumbnail(
 
 
 class LunaVaultUI:
+    """Provide shared state, image, pagination, and gallery UI behavior."""
+
     def __init__(self, config: UIConfig) -> None:
         self.config = config
         self.image_dir = config.image_dir
@@ -78,6 +82,7 @@ class LunaVaultUI:
         st.session_state[state_key] = ""
 
     def list_vault_images(self) -> list[Path]:
+        """List supported vault files newest first without decoding images."""
         return sorted(
             (
                 path
@@ -138,6 +143,7 @@ class LunaVaultUI:
     def render_gallery_navigation(
         self, page_count: int, state_key: str, key_prefix: str
     ) -> int:
+        """Render callback-driven controls and return the bounded page index."""
         current_page = min(max(st.session_state[state_key], 0), page_count - 1)
         st.session_state[state_key] = current_page
         selector_key = f"{key_prefix}_page"
@@ -152,6 +158,7 @@ class LunaVaultUI:
             args=(state_key, selector_key, current_page - 1),
         )
 
+        # Callbacks update state before Streamlit instantiates the next rerun.
         page_column.selectbox(
             "Page",
             options=list(range(1, page_count + 1)),
@@ -205,6 +212,8 @@ class LunaVaultUI:
 
 # ---------------- Upload Page ----------------
 class UploadPage(LunaVaultUI):
+    """Render uploads and persist AI-generated metadata results."""
+
     def upload_images(self, uploads: list) -> None:
         pending = []
         for upload in uploads:
@@ -280,6 +289,8 @@ class UploadPage(LunaVaultUI):
 
 # ---------------- View Page ----------------
 class ViewPage(LunaVaultUI):
+    """Render the searchable visible-image gallery and item actions."""
+
     def delete_image(self, image_path: Path) -> None:
         response = httpx.delete(
             f"{self.config.api_url}/api/images/{image_path.name}", timeout=30.0
@@ -315,18 +326,23 @@ class ViewPage(LunaVaultUI):
         clicked_image = None
 
         for row_start in range(0, len(page_images), self.config.gallery_columns):
-            row_images = page_images[row_start : row_start + self.config.gallery_columns]
+            row_images = page_images[
+                row_start : row_start + self.config.gallery_columns
+            ]
             thumbnails = [self.create_gallery_thumbnail(path) for path in row_images]
-            clicked_indices = st_img_selector(
-                images=thumbnails,
-                value=[],
-                corner_radius=10,
-                selection_color="#A78BFA",
-                img_per_row=self.config.gallery_columns,
-                border_thickness=4,
-                max_row_height=240,
-                key=f"view_selector_{generation}_{current_page}_{row_start}",
-            ) or []
+            clicked_indices = (
+                st_img_selector(
+                    images=thumbnails,
+                    value=[],
+                    corner_radius=10,
+                    selection_color="#A78BFA",
+                    img_per_row=self.config.gallery_columns,
+                    border_thickness=4,
+                    max_row_height=240,
+                    key=f"view_selector_{generation}_{current_page}_{row_start}",
+                )
+                or []
+            )
 
             columns = st.columns(self.config.gallery_columns)
             for column, image_path in zip(columns, row_images):
@@ -367,8 +383,10 @@ class ViewPage(LunaVaultUI):
             )
             confirm_column, cancel_column = st.columns(2)
             if confirm_column.button(
-                "Confirm deletion", type="primary", width="stretch",
-                key="confirm_view_delete"
+                "Confirm deletion",
+                type="primary",
+                width="stretch",
+                key="confirm_view_delete",
             ):
                 self.delete_image(self.image_dir / pending_name)
                 st.rerun()
@@ -390,16 +408,22 @@ class ViewPage(LunaVaultUI):
 
 # ---------------- View Images Page ----------------
 class ViewImagesPage(LunaVaultUI):
+    """Coordinate metadata search with the visible gallery."""
+
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
-        query = search_column.text_input(
-            "Search by image name",
-            placeholder="Type part of a filename",
-            key="view_name_search",
-            icon=":material/search:",
-        ).strip().casefold()
+        query = (
+            search_column.text_input(
+                "Search by image name",
+                placeholder="Type part of a filename",
+                key="view_name_search",
+                icon=":material/search:",
+            )
+            .strip()
+            .casefold()
+        )
         clear_column.button(
             ":material/close:",
             key="clear_view_name_search",
@@ -409,15 +433,20 @@ class ViewImagesPage(LunaVaultUI):
             width="stretch",
         )
         filtered = [
-            path for path in vault_images
+            path
+            for path in vault_images
             if query in self.display_name(path.name).casefold()
         ]
         if query and not filtered:
             st.info("No image names match your search.")
             return
         ViewPage(self.config).render(filtered, metadata_by_name)
+
+
 # ---------------- Delete Page ----------------
 class DeletePage(LunaVaultUI):
+    """Provide legacy batch-delete behavior for selected images."""
+
     def delete_selected_images(self, stored_names: list[str]) -> None:
         image_root = self.image_dir.resolve()
         image_paths = []
@@ -536,14 +565,18 @@ class DeletePage(LunaVaultUI):
                 st.session_state.gallery_generation += 1
                 st.rerun()
         elif st.button(
-            "Delete selected",            disabled=not st.session_state.gallery_selection,
+            "Delete selected",
+            disabled=not st.session_state.gallery_selection,
             width="stretch",
         ):
             st.session_state.pending_delete = sorted(st.session_state.gallery_selection)
             st.rerun()
 
+
 # ---------------- Download Page ----------------
 class DownloadPage(LunaVaultUI):
+    """Provide legacy multi-image ZIP download behavior."""
+
     def render(self, vault_images: list[Path]) -> None:
         if not vault_images:
             st.session_state.download_page = 0
@@ -558,13 +591,25 @@ class DownloadPage(LunaVaultUI):
             vault_images, "download_page", f"download_{generation}"
         )
         self._selection_gallery(
-            page_images, current_page, generation,
-            "download_selection", "download_selector"
+            page_images,
+            current_page,
+            generation,
+            "download_selection",
+            "download_selector",
         )
 
-        selected = [path for path in vault_images if path.name in st.session_state.download_selection]
+        selected = [
+            path
+            for path in vault_images
+            if path.name in st.session_state.download_selection
+        ]
         if not selected:
-            st.button("Download selected", icon=":material/download:", disabled=True, width="stretch")
+            st.button(
+                "Download selected",
+                icon=":material/download:",
+                disabled=True,
+                width="stretch",
+            )
             return
 
         archive = io.BytesIO()
@@ -580,7 +625,8 @@ class DownloadPage(LunaVaultUI):
             f"Download selected ({len(selected)})",
             data=archive.getvalue(),
             file_name="luna-vault-images.zip",
-            mime="application/zip",            width="stretch",
+            mime="application/zip",
+            width="stretch",
         )
 
     def _selection_gallery(
@@ -596,22 +642,28 @@ class DownloadPage(LunaVaultUI):
             row_images = images[row_start : row_start + self.config.gallery_columns]
             row_names = {path.name for path in row_images}
             selected_indices = [
-                index for index, path in enumerate(row_images)
+                index
+                for index, path in enumerate(row_images)
                 if path.name in st.session_state[state_key]
             ]
-            values = st_img_selector(
-                images=[self.create_gallery_thumbnail(path) for path in row_images],
-                value=selected_indices,
-                corner_radius=10,
-                selection_color="#A78BFA",
-                img_per_row=self.config.gallery_columns,
-                border_thickness=4,
-                max_row_height=240,
-                key=f"{key_prefix}_{generation}_{page}_{row_start}",
-            ) or []
+            values = (
+                st_img_selector(
+                    images=[self.create_gallery_thumbnail(path) for path in row_images],
+                    value=selected_indices,
+                    corner_radius=10,
+                    selection_color="#A78BFA",
+                    img_per_row=self.config.gallery_columns,
+                    border_thickness=4,
+                    max_row_height=240,
+                    key=f"{key_prefix}_{generation}_{page}_{row_start}",
+                )
+                or []
+            )
             st.session_state[state_key].difference_update(row_names)
             st.session_state[state_key].update(
-                row_images[index].name for index in values if 0 <= index < len(row_images)
+                row_images[index].name
+                for index in values
+                if 0 <= index < len(row_images)
             )
             self.render_filename_row(row_images)
 
@@ -625,6 +677,7 @@ class DownloadPage(LunaVaultUI):
                         width="stretch",
                         key=f"hidden_full_{generation}_{page}_{image_path.name}",
                     ):
+
                         @st.dialog(self.display_name(image_path.name), width="large")
                         def show_hidden_full_image(path: Path = image_path) -> None:
                             st.image(path, width="stretch")
@@ -651,6 +704,8 @@ class DownloadPage(LunaVaultUI):
 
 # ---------------- Hidden Page ----------------
 class HiddenPage(DownloadPage):
+    """Render authenticated hidden-image management workflows."""
+
     def _post(self, route: str, payload: dict, authenticated: bool = False) -> dict:
         headers = {}
         if authenticated:
@@ -672,7 +727,9 @@ class HiddenPage(DownloadPage):
 
         if not configured:
             st.subheader("Create hidden-vault access")
-            st.caption("Choose a password and an 8-digit reset PIN. Store the PIN safely.")
+            st.caption(
+                "Choose a password and an 8-digit reset PIN. Store the PIN safely."
+            )
             with st.form("hidden_setup"):
                 password = st.text_input("Create password", type="password")
                 confirm = st.text_input("Confirm password", type="password")
@@ -683,11 +740,17 @@ class HiddenPage(DownloadPage):
                     st.error("Passwords do not match.")
                 else:
                     try:
-                        result = self._post("/api/hidden/setup", {"password": password, "pin": pin})
+                        result = self._post(
+                            "/api/hidden/setup", {"password": password, "pin": pin}
+                        )
                         st.session_state.hidden_auth_token = result["token"]
                         st.rerun()
                     except httpx.HTTPStatusError as error:
-                        st.error(error.response.json().get("error", "Could not create access."))
+                        st.error(
+                            error.response.json().get(
+                                "error", "Could not create access."
+                            )
+                        )
             return False
 
         st.subheader("Unlock hidden images")
@@ -714,12 +777,15 @@ class HiddenPage(DownloadPage):
                 else:
                     try:
                         result = self._post(
-                            "/api/hidden/reset", {"pin": pin, "new_password": new_password}
+                            "/api/hidden/reset",
+                            {"pin": pin, "new_password": new_password},
                         )
                         st.session_state.hidden_auth_token = result["token"]
                         st.rerun()
                     except httpx.HTTPStatusError as error:
-                        st.error(error.response.json().get("error", "Password reset failed."))
+                        st.error(
+                            error.response.json().get("error", "Password reset failed.")
+                        )
         return False
 
     def _move_selected(self, route: str, state_key: str) -> None:
@@ -820,7 +886,9 @@ class HiddenPage(DownloadPage):
         try:
             response = httpx.get(
                 f"{self.config.api_url}/api/hidden/images",
-                headers={"Authorization": f"Bearer {st.session_state.hidden_auth_token}"},
+                headers={
+                    "Authorization": f"Bearer {st.session_state.hidden_auth_token}"
+                },
                 timeout=10.0,
             )
             if response.status_code == 401:
@@ -832,7 +900,9 @@ class HiddenPage(DownloadPage):
             return
 
         hidden_names = {item["name"] for item in response.json()["images"]}
-        hidden_images = [path for path in self.list_vault_images() if path.name in hidden_names]
+        hidden_images = [
+            path for path in self.list_vault_images() if path.name in hidden_names
+        ]
         mode = st.segmented_control(
             "Hidden image action",
             ["Hidden images", "Add images"],
@@ -842,12 +912,16 @@ class HiddenPage(DownloadPage):
             width="stretch",
         )
         search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
-        query = search_column.text_input(
-            "Search hidden vault by image name",
-            placeholder="Type part of a filename",
-            key="hidden_name_search",
-            icon=":material/search:",
-        ).strip().casefold()
+        query = (
+            search_column.text_input(
+                "Search hidden vault by image name",
+                placeholder="Type part of a filename",
+                key="hidden_name_search",
+                icon=":material/search:",
+            )
+            .strip()
+            .casefold()
+        )
         clear_column.button(
             ":material/close:",
             key="clear_hidden_name_search",
@@ -857,28 +931,43 @@ class HiddenPage(DownloadPage):
             width="stretch",
         )
         hidden_images = [
-            path for path in hidden_images
+            path
+            for path in hidden_images
             if query in self.display_name(path.name).casefold()
         ]
         visible_images = [
-            path for path in visible_images
+            path
+            for path in visible_images
             if query in self.display_name(path.name).casefold()
         ]
         if mode == "Hidden images":
             self._render_collection(
-                hidden_images, "No images are hidden.", "hidden_page",
-                "hidden_selection", "hidden_generation", "hidden",
-                "Restore selected", "/api/hidden/restore", True
+                hidden_images,
+                "No images are hidden.",
+                "hidden_page",
+                "hidden_selection",
+                "hidden_generation",
+                "hidden",
+                "Restore selected",
+                "/api/hidden/restore",
+                True,
             )
         else:
             self._render_collection(
-                visible_images, "No visible images are available.", "hide_page",
-                "hide_selection", "hide_generation", "hide",
-                "Hide selected", "/api/hidden/hide"
+                visible_images,
+                "No visible images are available.",
+                "hide_page",
+                "hide_selection",
+                "hide_generation",
+                "hide",
+                "Hide selected",
+                "/api/hidden/hide",
             )
+
 
 # ---------------- Main App ----------------
 def main() -> None:
+    """Configure Streamlit and render the active Luna Vault page."""
     config = UIConfig.from_env()
     LunaVaultUI(config).initialize_state()
 

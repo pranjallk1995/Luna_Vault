@@ -1,3 +1,5 @@
+"""FastMCP tools and HTTP routes for Luna Vault."""
+
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,8 @@ from vision import OllamaVisionAnalyzer
 
 
 class LunaVaultMCP:
+    """Register MCP tools and authenticated UI-facing HTTP routes."""
+
     def __init__(self, vault: ImageVaultService, auth: HiddenVaultAuth) -> None:
         self.vault = vault
         self.auth = auth
@@ -178,10 +182,12 @@ class LunaVaultMCP:
                 return self._error(error)
 
     def run(self) -> None:
+        """Serve Luna Vault over the streamable HTTP transport."""
         self.mcp.run(transport="streamable-http")
 
 
 def build_server() -> LunaVaultMCP:
+    """Compose validated configuration and concrete service dependencies."""
     config = AppConfig.from_env()
     repository = MetadataRepository(config)
     repository.initialize()
