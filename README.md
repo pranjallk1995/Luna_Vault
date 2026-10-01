@@ -3,7 +3,7 @@
 Luna Vault is an AI-powered, private image library that runs locally. Its Ollama
 vision model analyzes every upload automatically, creates a concise caption and
 searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the indexed
-collection available to AI assistants for fast search and safe image-management
+collection available to AI assistants of your choice (ChatGPT here) for fast search and safe image-management
 operations without repeatedly opening every original image.
 
 The Streamlit interface lets you upload, search, view, download, hide, restore,
