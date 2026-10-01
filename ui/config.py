@@ -9,6 +9,8 @@ class UIConfig:
     image_dir: Path
     api_url: str
     card_size: tuple[int, int] = (420, 248)
+    thumbnail_background_color: str = "#171D33"
+    thumbnail_padding: int = 20
     chunk_size: int = 1024 * 1024
     gallery_columns: int = 3
     images_per_page: int = 9

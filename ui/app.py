@@ -18,16 +18,19 @@ def cached_gallery_thumbnail(
     image_path: str,
     modified_ns: int,
     card_size: tuple[int, int],
+    background_color: str,
+    padding: int,
 ) -> Image.Image:
     """Build and cache a gallery thumbnail until its source file changes."""
     del modified_ns  # Included in the cache key to invalidate modified images.
     card_width, card_height = card_size
-    card = Image.new("RGB", card_size, "#171D33")
+    card = Image.new("RGB", card_size, background_color)
+    content_size = (max(1, card_width - padding), max(1, card_height - padding))
 
     with Image.open(image_path) as source:
-        source.draft("RGB", (card_width - 20, card_height - 20))
+        source.draft("RGB", content_size)
         preview = ImageOps.exif_transpose(source).convert("RGB")
-        preview.thumbnail((card_width - 20, card_height - 20))
+        preview.thumbnail(content_size)
 
     left = (card_width - preview.width) // 2
     top = (card_height - preview.height) // 2
@@ -115,6 +118,8 @@ class LunaVaultUI:
             str(image_path),
             image_path.stat().st_mtime_ns,
             self.config.card_size,
+            self.config.thumbnail_background_color,
+            self.config.thumbnail_padding,
         )
 
     def render_gallery_navigation(
@@ -258,7 +263,7 @@ class UploadPage(LunaVaultUI):
                     st.write(image["caption"])
                     st.caption("  ".join(f"#{tag}" for tag in image["tags"]))
         if st.session_state.uploaded_images and st.button(
-            "Clear", icon=":material/refresh:", width="stretch"
+            ":material/close:", icon=":material/refresh:", width="stretch"
         ):
             self.clear_ui_state()
             st.rerun()
@@ -331,9 +336,9 @@ class ViewImagesPage(LunaVaultUI):
             icon=":material/search:",
         ).strip().casefold()
         clear_column.button(
-            "Clear",
+            ":material/close:",
             key="clear_view_name_search",
-            icon=":material/close:",
+            help="Clear search",
             on_click=self.clear_search,
             args=("view_name_search",),
             width="stretch",
@@ -709,9 +714,9 @@ class HiddenPage(DownloadPage):
             icon=":material/search:",
         ).strip().casefold()
         clear_column.button(
-            "Clear",
+            ":material/close:",
             key="clear_hidden_name_search",
-            icon=":material/close:",
+            help="Clear search",
             on_click=self.clear_search,
             args=("hidden_name_search",),
             width="stretch",
