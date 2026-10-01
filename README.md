@@ -29,7 +29,7 @@ viewing, downloading, restoring, searching, and deleting them separately.
   <img src="docs/assets/luna-vault-hidden-example.png" alt="Example image stored in Luna Vault's hidden gallery" width="300">
 </p>
 
-An example image stored in the password-protected hidden gallery.
+An example image stored in the password-protected hidden gallery. yah... i know...
 
 ## Run
 
