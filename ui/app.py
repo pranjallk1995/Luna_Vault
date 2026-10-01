@@ -56,6 +56,7 @@ class LunaVaultUI:
             "pending_delete": [],
             "view_generation": 0,
             "view_page": 0,
+            "pending_view_delete": None,
             "download_generation": 0,
             "download_page": 0,
             "download_selection": set(),
@@ -263,7 +264,7 @@ class UploadPage(LunaVaultUI):
                     st.write(image["caption"])
                     st.caption("  ".join(f"#{tag}" for tag in image["tags"]))
         if st.session_state.uploaded_images and st.button(
-            ":material/close:", icon=":material/refresh:", width="stretch"
+            "Clear", icon=":material/refresh:", width="stretch"
         ):
             self.clear_ui_state()
             st.rerun()
@@ -271,14 +272,34 @@ class UploadPage(LunaVaultUI):
 
 # ---------------- View Page ----------------
 class ViewPage(LunaVaultUI):
+    def delete_image(self, image_path: Path) -> None:
+        response = httpx.delete(
+            f"{self.config.api_url}/api/images/{image_path.name}", timeout=30.0
+        )
+        response.raise_for_status()
+        retained_uploads = []
+        for image in st.session_state.uploaded_images:
+            if image["name"] == image_path.name:
+                st.session_state.saved_uploads.discard(image["upload_id"])
+            else:
+                retained_uploads.append(image)
+        st.session_state.uploaded_images = retained_uploads
+        st.session_state.pending_view_delete = None
+        st.session_state.view_generation += 1
+        st.session_state.download_generation += 1
+
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         if not vault_images:
             st.session_state.view_page = 0
+            st.session_state.pending_view_delete = None
             st.info("No images are currently stored in Luna Vault.")
             return
 
+        vault_names = {path.name for path in vault_images}
+        if st.session_state.pending_view_delete not in vault_names:
+            st.session_state.pending_view_delete = None
         generation = st.session_state.view_generation
         current_page, page_images = self.paginated_images(
             vault_images, "view_page", f"view_{generation}"
@@ -286,31 +307,68 @@ class ViewPage(LunaVaultUI):
         clicked_image = None
 
         for row_start in range(0, len(page_images), self.config.gallery_columns):
-            row_images = page_images[
-                row_start : row_start + self.config.gallery_columns
-            ]
-            thumbnails = [
-                self.create_gallery_thumbnail(image_path) for image_path in row_images
-            ]
-            clicked_indices = (
-                st_img_selector(
-                    images=thumbnails,
-                    value=[],
-                    corner_radius=10,
-                    selection_color="#A78BFA",
-                    img_per_row=self.config.gallery_columns,
-                    border_thickness=4,
-                    max_row_height=240,
-                    key=f"view_selector_{generation}_{current_page}_{row_start}",
+            row_images = page_images[row_start : row_start + self.config.gallery_columns]
+            thumbnails = [self.create_gallery_thumbnail(path) for path in row_images]
+            clicked_indices = st_img_selector(
+                images=thumbnails,
+                value=[],
+                corner_radius=10,
+                selection_color="#A78BFA",
+                img_per_row=self.config.gallery_columns,
+                border_thickness=4,
+                max_row_height=240,
+                key=f"view_selector_{generation}_{current_page}_{row_start}",
+            ) or []
+
+            columns = st.columns(self.config.gallery_columns)
+            for column, image_path in zip(columns, row_images):
+                self.render_image_name(column, image_path.name)
+                metadata = metadata_by_name.get(image_path.name)
+                if metadata:
+                    with column.expander("Caption & tags", expanded=False):
+                        st.write(metadata["caption"])
+                        st.caption("  ".join(f"#{tag}" for tag in metadata["tags"]))
+                download_column, delete_column = column.columns(2)
+                download_column.download_button(
+                    "Download",
+                    data=image_path.read_bytes(),
+                    file_name=self.display_name(image_path.name),
+                    mime=f"image/{image_path.suffix.lower().lstrip('.')}",
+                    icon=":material/download:",
+                    width="stretch",
+                    key=f"view_download_{generation}_{image_path.name}",
                 )
-                or []
-            )
-            self.render_filename_row(row_images, metadata_by_name)
+                if delete_column.button(
+                    "Delete",
+                    icon=":material/delete:",
+                    width="stretch",
+                    key=f"view_delete_{generation}_{image_path.name}",
+                ):
+                    st.session_state.pending_view_delete = image_path.name
+                    st.rerun()
 
             if clicked_indices and clicked_image is None:
-                clicked_index = clicked_indices[-1]
-                if 0 <= clicked_index < len(row_images):
-                    clicked_image = row_images[clicked_index]
+                index = clicked_indices[-1]
+                if 0 <= index < len(row_images):
+                    clicked_image = row_images[index]
+
+        pending_name = st.session_state.pending_view_delete
+        if pending_name:
+            st.warning(
+                f"Delete {self.display_name(pending_name)}? This cannot be undone."
+            )
+            confirm_column, cancel_column = st.columns(2)
+            if confirm_column.button(
+                "Confirm deletion", type="primary", width="stretch",
+                key="confirm_view_delete"
+            ):
+                self.delete_image(self.image_dir / pending_name)
+                st.rerun()
+            if cancel_column.button(
+                "Cancel", width="stretch", key="cancel_view_delete"
+            ):
+                st.session_state.pending_view_delete = None
+                st.rerun()
 
         if clicked_image is not None:
             st.session_state.view_generation += 1
@@ -322,8 +380,7 @@ class ViewPage(LunaVaultUI):
             show_full_size_image()
 
 
-
-# ---------------- Combined View/Delete Page ----------------
+# ---------------- View Images Page ----------------
 class ViewImagesPage(LunaVaultUI):
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
@@ -347,26 +404,10 @@ class ViewImagesPage(LunaVaultUI):
             path for path in vault_images
             if query in self.display_name(path.name).casefold()
         ]
-        mode = st.segmented_control(
-            "Image action",
-            ["Browse", "Delete"],
-            default="Browse",
-            format_func=lambda option: {
-                "Browse": ":material/visibility: Browse",
-                "Delete": ":material/delete: Delete",
-            }[option],
-            label_visibility="collapsed",
-            key="view_action_mode",
-            width="stretch",
-        )
         if query and not filtered:
             st.info("No image names match your search.")
             return
-        if mode == "Browse":
-            ViewPage(self.config).render(filtered, metadata_by_name)
-        else:
-            DeletePage(self.config).render(filtered)
-
+        ViewPage(self.config).render(filtered, metadata_by_name)
 # ---------------- Delete Page ----------------
 class DeletePage(LunaVaultUI):
     def delete_selected_images(self, stored_names: list[str]) -> None:
@@ -750,10 +791,9 @@ def main() -> None:
     st.set_page_config(page_title="Luna Vault")
     st.title(":material/photo_library: Luna Vault")
 
-    upload_tab, download_tab, view_tab, hidden_tab = st.tabs(
+    upload_tab, view_tab, hidden_tab = st.tabs(
         [
             ":material/upload: Upload Images",
-            ":material/download: Download Images",
             ":material/visibility: View Images",
             ":material/lock: Hidden Images",
         ]
@@ -770,8 +810,6 @@ def main() -> None:
         for path in LunaVaultUI(config).list_vault_images()
         if path.name in metadata_by_name
     ]
-    with download_tab:
-        DownloadPage(config).render(vault_images)
     with view_tab:
         ViewImagesPage(config).render(vault_images, metadata_by_name)
     with hidden_tab:
