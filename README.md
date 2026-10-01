@@ -1,12 +1,26 @@
 # Luna Vault
 
-Luna Vault is a private, local image vault with:
+Luna Vault is a private, locally hosted image library. It lets you upload, browse,
+search, download, hide, and delete images from a polished Streamlit interface.
+Local Ollama vision analysis automatically creates captions and searchable tags,
+while PostgreSQL stores the metadata and FastMCP exposes safe image-management
+and search tools. Images, database records, and AI models persist in Docker
+volumes, and the password-protected Hidden Images area stays out of normal
+galleries and searches.
 
-- PostgreSQL metadata and full-text/tag indexes, with a localhost-only Adminer interface.
-- A FastMCP server with image lifecycle and metadata search tools.
-- Local Ollama vision analysis accelerated by an NVIDIA GPU when available.
-- A Streamlit upload, combined view/delete with filename search, ZIP download, and password-protected hidden-image interface.
-- Persistent Docker volumes for database data, images, and Ollama models.
+![Example image stored in Luna Vault's hidden gallery](docs/assets/luna-vault-hidden-example.png)
+
+## Run
+
+Optionally set `POSTGRES_PASSWORD`, then build and start:
+
+```sh
+docker compose up --build
+```
+
+The first run downloads the configured vision model. Open Luna Vault at
+<http://127.0.0.1:18501>. The Hidden Images tab lets you create a password and an
+exactly 8-digit reset PIN; both are salted and hashed in PostgreSQL.
 
 ## Vision model
 
@@ -23,15 +37,6 @@ docker compose up -d ollama
 docker compose exec ollama ollama pull qwen2.5vl:7b
 ```
 
-## Run
-
-Optionally set `POSTGRES_PASSWORD`, then build and start:
-
-```sh
-docker compose up --build
-```
-
-The first run downloads the configured vision model. Open Luna Vault at <http://127.0.0.1:18501>. The Hidden Images tab lets you create a password and an exactly 8-digit reset PIN; both are salted and hashed in PostgreSQL, and hidden images are excluded from normal galleries and MCP search/view tools.
 
 ## Database UI
 
