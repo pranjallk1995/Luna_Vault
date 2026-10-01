@@ -124,6 +124,17 @@ class LunaVaultUI:
             self.config.thumbnail_padding,
         )
 
+    @staticmethod
+    def change_gallery_page(
+        state_key: str, selector_key: str, target_page: int
+    ) -> None:
+        st.session_state[state_key] = target_page
+        st.session_state[selector_key] = target_page + 1
+
+    @staticmethod
+    def sync_gallery_page(state_key: str, selector_key: str) -> None:
+        st.session_state[state_key] = st.session_state[selector_key] - 1
+
     def render_gallery_navigation(
         self, page_count: int, state_key: str, key_prefix: str
     ) -> int:
@@ -132,36 +143,33 @@ class LunaVaultUI:
         selector_key = f"{key_prefix}_page"
 
         previous_column, page_column, next_column = st.columns([1, 2, 1])
-        if previous_column.button(
+        previous_column.button(
             ":material/arrow_back:",
             disabled=current_page == 0,
             width="stretch",
             key=f"{key_prefix}_previous",
-        ):
-            st.session_state[state_key] = current_page - 1
-            st.session_state[selector_key] = current_page
-            st.rerun()
+            on_click=self.change_gallery_page,
+            args=(state_key, selector_key, current_page - 1),
+        )
 
-        selected_page = page_column.selectbox(
+        page_column.selectbox(
             "Page",
             options=list(range(1, page_count + 1)),
             index=current_page,
             label_visibility="collapsed",
             key=selector_key,
+            on_change=self.sync_gallery_page,
+            args=(state_key, selector_key),
         )
-        if selected_page - 1 != current_page:
-            st.session_state[state_key] = selected_page - 1
-            st.rerun()
 
-        if next_column.button(
+        next_column.button(
             ":material/arrow_forward:",
             disabled=current_page == page_count - 1,
             width="stretch",
             key=f"{key_prefix}_next",
-        ):
-            st.session_state[state_key] = current_page + 1
-            st.session_state[selector_key] = current_page + 2
-            st.rerun()
+            on_click=self.change_gallery_page,
+            args=(state_key, selector_key, current_page + 1),
+        )
 
         return current_page
 
