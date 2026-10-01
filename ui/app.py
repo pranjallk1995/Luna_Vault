@@ -132,7 +132,7 @@ class LunaVaultUI:
             metadata = (metadata_by_name or {}).get(image_path.name)
             if metadata:
                 column.write(metadata["caption"])
-                column.caption(" Â· ".join(f"#{tag}" for tag in metadata["tags"]))
+                column.caption("  ".join(f"#{tag}" for tag in metadata["tags"]))
 
 
 # ---------------- Upload Page ----------------
@@ -202,7 +202,7 @@ class UploadPage(LunaVaultUI):
             with st.container(border=True):
                 st.caption(self.display_name(image["name"]))
                 st.write(image["caption"])
-                st.caption(" Â· ".join(f"#{tag}" for tag in image["tags"]))
+                st.caption("  ".join(f"#{tag}" for tag in image["tags"]))
         if st.session_state.uploaded_images and st.button("Clear", icon=":material/refresh:", width="stretch"):
             self.clear_ui_state()
             st.rerun()
@@ -388,4 +388,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
