@@ -1,5 +1,7 @@
 # Luna Vault
 
+## Generate, Manipulate, Search and Store images of your choice using LLMs.
+
 Luna Vault is an AI-powered, private image library that runs locally. Its Ollama
 vision model analyzes every upload automatically, creates a concise caption and
 searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the indexed
@@ -10,6 +12,18 @@ The Streamlit interface lets you upload, search, view, download, hide, restore,
 and delete images. Image data, metadata, and AI models persist in Docker volumes,
 while the password-protected hidden vault stays separate from normal galleries
 and searches.
+
+<p align="center">
+  <img src="docs/assets/luna-vault-ai-assistant.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
+</p>
+
+An MCP-connected AI assistant can query Luna Vault's generated captions and tags,
+answer collection-level questions, and return matching filenames without visually
+reprocessing every original image.
+
+Luna Vault is also well suited to bulk image manipulation and editing workflows.
+Its MCP tools let an AI assistant find and act on groups of images while keeping
+the stored files and their searchable metadata synchronized.
 
 <p align="center">
   <img src="docs/assets/luna-vault-gallery.png" alt="Searchable Luna Vault image gallery" width="720">
