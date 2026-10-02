@@ -45,6 +45,7 @@ class ViewPage(LunaVaultUI):
             vault_images, "view_page", f"view_{generation}"
         )
         clicked_image = None
+        self.render_gallery_transition_marker("view_page")
 
         for row_start in range(0, len(page_images), self.config.gallery_columns):
             row_images = page_images[
@@ -96,6 +97,7 @@ class ViewPage(LunaVaultUI):
                 index = clicked_indices[-1]
                 if 0 <= index < len(row_images):
                     clicked_image = row_images[index]
+        self.finish_gallery_transition("view_page")
 
         pending_name = st.session_state.pending_view_delete
         if pending_name:

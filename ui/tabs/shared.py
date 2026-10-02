@@ -1,6 +1,7 @@
 """Shared Streamlit gallery and state helpers."""
 
 import html
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -58,6 +59,7 @@ class LunaVaultUI:
             "hide_generation": 0,
             "hide_page": 0,
             "hide_selection": set(),
+            "gallery_transitions": {},
         }
         for key, value in defaults.items():
             if key not in st.session_state:
@@ -117,12 +119,49 @@ class LunaVaultUI:
     def change_gallery_page(
         state_key: str, selector_key: str, target_page: int
     ) -> None:
-        st.session_state[state_key] = target_page
+        """Queue a button-driven page change so the old grid can animate out."""
+        st.session_state.gallery_transitions[state_key] = {
+            "phase": "out",
+            "target": target_page,
+        }
         st.session_state[selector_key] = target_page + 1
 
     @staticmethod
     def sync_gallery_page(state_key: str, selector_key: str) -> None:
-        st.session_state[state_key] = st.session_state[selector_key] - 1
+        """Queue a selector-driven page change without replacing widget state."""
+        target_page = st.session_state[selector_key] - 1
+        if target_page != st.session_state[state_key]:
+            st.session_state.gallery_transitions[state_key] = {
+                "phase": "out",
+                "target": target_page,
+            }
+
+    @staticmethod
+    def gallery_transition_phase(state_key: str) -> str:
+        """Return the active animation phase for a gallery."""
+        transition = st.session_state.gallery_transitions.get(state_key)
+        return transition["phase"] if transition else "idle"
+
+    def render_gallery_transition_marker(self, state_key: str) -> None:
+        """Mark the current gallery rerun for its scoped CSS animation."""
+        phase = self.gallery_transition_phase(state_key)
+        st.markdown(
+            f'<span class="lv-gallery-transition lv-gallery-{phase}"></span>',
+            unsafe_allow_html=True,
+        )
+
+    @staticmethod
+    def finish_gallery_transition(state_key: str) -> None:
+        """Advance an exit animation to the target page, then clear entry state."""
+        transition = st.session_state.gallery_transitions.get(state_key)
+        if not transition:
+            return
+        if transition["phase"] == "out":
+            time.sleep(0.16)
+            st.session_state[state_key] = transition["target"]
+            transition["phase"] = "in"
+            st.rerun()
+        st.session_state.gallery_transitions.pop(state_key, None)
 
     def render_gallery_navigation(
         self, page_count: int, state_key: str, key_prefix: str

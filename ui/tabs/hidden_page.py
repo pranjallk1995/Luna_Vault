@@ -205,6 +205,7 @@ class HiddenPage(GallerySelectionControls):
         page, page_images = self.paginated_images(
             images, page_key, f"{prefix}_{generation}"
         )
+        self.render_gallery_transition_marker(page_key)
         self._selection_gallery(
             page_images,
             page,
@@ -213,6 +214,7 @@ class HiddenPage(GallerySelectionControls):
             prefix,
             allow_hidden_actions,
         )
+        self.finish_gallery_transition(page_key)
 
         pending_name = st.session_state.pending_hidden_delete
         if allow_hidden_actions and pending_name:

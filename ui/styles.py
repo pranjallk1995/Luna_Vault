@@ -37,6 +37,12 @@ def apply_app_styles() -> None:
         div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
         div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(17,24,42,.66); }
         div[data-testid="stSegmentedControl"] { padding:.25rem; border:1px solid var(--lv-border); border-radius:.85rem; background:rgba(17,24,42,.66); }
+        .lv-gallery-transition { display:none; }
+        @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }
+        @keyframes lv-gallery-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        div[data-testid="stElementContainer"]:has(.lv-gallery-out) ~ * { animation:lv-gallery-out 160ms ease-in forwards; }
+        div[data-testid="stElementContainer"]:has(.lv-gallery-in) ~ * { animation:lv-gallery-in 180ms ease-out both; }
+        @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
         @media (max-width:700px) { .block-container { padding:.85rem .8rem 2rem; } .lv-subtitle { display:none; } div[data-testid="stTabs"] [data-baseweb="tab"] { padding:0 .55rem; } }
         </style>
         """,
