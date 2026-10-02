@@ -45,12 +45,6 @@ tags, full-size viewing, downloads, and deletion controls.
 The hidden vault keeps private images behind a password and supports adding,
 viewing, downloading, restoring, searching, and deleting them separately.
 
-<p align="center">
-  <img src="docs/assets/luna-vault-hidden-example.png" alt="Example image stored in Luna Vault's hidden gallery" width="300">
-</p>
-
-An example image stored in the password-protected hidden gallery. yah... i know...
-
 ## Run
 
 Optionally set `POSTGRES_PASSWORD`, then build and start:
