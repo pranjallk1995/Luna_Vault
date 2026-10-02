@@ -4,6 +4,7 @@ import httpx
 import streamlit as st
 
 from config import UIConfig
+from styles import apply_app_styles, render_app_header, render_section_intro
 from tabs.hidden_page import HiddenPage
 from tabs.shared import LunaVaultUI
 from tabs.upload_page import UploadPage
@@ -12,11 +13,16 @@ from tabs.view_page import ViewImagesPage
 
 def main() -> None:
     """Configure Streamlit and render the active Luna Vault page."""
+    st.set_page_config(
+        page_title="Luna Vault",
+        page_icon="🌙",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
     config = UIConfig.from_env()
     LunaVaultUI(config).initialize_state()
-
-    st.set_page_config(page_title="Luna Vault")
-    st.title(":material/photo_library: Luna Vault")
+    apply_app_styles()
+    render_app_header()
 
     upload_tab, view_tab, hidden_tab = st.tabs(
         [
@@ -37,10 +43,22 @@ def main() -> None:
     ]
 
     with upload_tab:
+        render_section_intro(
+            "Ingest", "Add images",
+            "Upload one or many images and let Luna Vault generate searchable details.",
+        )
         UploadPage(config).render()
     with view_tab:
+        render_section_intro(
+            "Library", "Browse your vault",
+            "Find, inspect, download, or remove images from your private collection.",
+        )
         ViewImagesPage(config).render(vault_images, metadata_by_name)
     with hidden_tab:
+        render_section_intro(
+            "Protected space", "Hidden vault",
+            "Keep sensitive images behind a separate password-protected view.",
+        )
         HiddenPage(config).render(vault_images)
 
 
