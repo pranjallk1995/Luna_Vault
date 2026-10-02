@@ -31,16 +31,8 @@ Luna Vault is also well suited to bulk image manipulation and editing workflows.
 Its MCP tools let an AI assistant find and act on groups of images while keeping
 the stored files and their searchable metadata synchronized.
 
-<p align="center">
-  <img src="docs/assets/luna-vault-gallery.png" alt="Searchable Luna Vault image gallery" width="720">
-</p>
-
 The main gallery provides filename search, pagination, AI-generated captions and
 tags, full-size viewing, downloads, and deletion controls.
-
-<p align="center">
-  <img src="docs/assets/luna-vault-hidden-gallery.png" alt="Password-protected Luna Vault hidden gallery" width="720">
-</p>
 
 The hidden vault keeps private images behind a password and supports adding,
 viewing, downloading, restoring, searching, and deleting them separately.
