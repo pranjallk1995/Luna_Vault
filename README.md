@@ -98,14 +98,14 @@ If NVIDIA passthrough is unavailable, remove `gpus: all` from the Ollama service
 
 Luna Vault exposes these tools to connected MCP clients:
 
-- `list_images` — list visible images with captions and tags.
-- `view_image` — return a visible image.
-- `add_image` — add an image and generate metadata.
-- `modify_image` — replace a visible image and refresh its metadata.
-- `update_image_metadata` — update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
-- `remove_image` — delete a visible image and its metadata.
-- `search_images` — search captions and tags without opening original images.
-- `backfill_metadata` — generate missing or stale metadata for imported files.
+- `list_images` ï¿½ list visible images with captions and tags.
+- `view_image` ï¿½ return a visible image.
+- `add_image` ï¿½ add an image and generate metadata.
+- `modify_image` ï¿½ replace a visible image and refresh its metadata.
+- `update_image_metadata` ï¿½ update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
+- `remove_image` ï¿½ delete a visible image and its metadata.
+- `search_images` ï¿½ search captions and tags without opening original images.
+- `backfill_metadata` ï¿½ generate missing or stale metadata for imported files.
 
 Hidden-vault password and session endpoints are UI-only custom routes, not MCP tools.
 ## Metadata and search
@@ -139,27 +139,28 @@ docker compose restart mcp
 
 ### UI modules
 
-- `ui/app.py` — the small Streamlit entry point: creates the three tabs, loads image metadata, and passes data to each page.
-- `ui/config.py` — reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
-- `ui/pages/shared.py` — shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
-- `ui/pages/upload_page.py` — upload handling, progress feedback, and display of newly generated captions and tags.
-- `ui/pages/view_page.py` — visible-image search, gallery display, full-image viewing, downloads, and deletion.
-- `ui/pages/hidden_page.py` — hidden-vault authentication, hiding/restoring images, and hidden-image viewing, downloads, and deletion.
-- `ui/pages/__init__.py` — marks the page directory as a Python package.
-- `ui/.streamlit/config.toml` — Streamlit theme settings.
-- `ui/requirements.txt` — Python dependencies used by the UI container.
-- `ui/Dockerfile` — builds the UI container image.
+- `ui/app.py` ï¿½ the small Streamlit entry point: creates the three tabs, loads image metadata, and passes data to each page.
+- `ui/config.py` ï¿½ reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
+- `ui/pages/shared.py` ï¿½ shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
+- `ui/pages/upload_page.py` ï¿½ upload handling, progress feedback, and display of newly generated captions and tags.
+- `ui/pages/view_page.py` ï¿½ visible-image search, gallery display, full-image viewing, downloads, and deletion.
+- `ui/pages/hidden_page.py` ï¿½ hidden-vault authentication, hiding/restoring images, and hidden-image viewing, downloads, and deletion.
+- `ui/pages/__init__.py` ï¿½ marks the page directory as a Python package.
+- `ui/.streamlit/config.toml` ï¿½ Streamlit theme settings.
+- `ui/requirements.txt` ï¿½ Python dependencies used by the UI container.
+- `ui/Dockerfile` ï¿½ builds the UI container image.
 
 ### MCP modules
 
-- `mcp/server.py` — FastMCP server entry point and the public image-management tools.
-- `mcp/vault.py` — image ingestion, metadata backfill, safe file operations, and search orchestration.
-- `mcp/vision.py` — Ollama vision requests plus validation and normalization of captions and tags.
-- `mcp/database.py` — PostgreSQL schema setup and metadata/search-index persistence and queries.
-- `mcp/security.py` — password and PIN handling plus hidden-vault authentication and sessions.
-- `mcp/config.py` — reads and validates MCP settings, including database, image, Ollama, and vision-model configuration.
-- `mcp/__init__.py` — marks the MCP directory as a Python package.
-- `mcp/tests/` — automated tests for vault behavior, metadata processing, and security safeguards.
-- `mcp/requirements.txt` — Python dependencies used by the MCP container.
-- `mcp/Dockerfile` — builds the MCP container image.
+- `mcp/server.py` ï¿½ FastMCP server entry point and the public image-management tools.
+- `mcp/vault.py` ï¿½ image ingestion, metadata backfill, safe file operations, and search orchestration.
+- `mcp/vision.py` ï¿½ Ollama vision requests plus validation and normalization of captions and tags.
+- `mcp/database.py` ï¿½ PostgreSQL schema setup and metadata/search-index persistence and queries.
+- `mcp/security.py` ï¿½ password and PIN handling plus hidden-vault authentication and sessions.
+- `mcp/config.py` ï¿½ reads and validates MCP settings, including database, image, Ollama, and vision-model configuration.
+- `mcp/__init__.py` ï¿½ marks the MCP directory as a Python package.
+- `mcp/tests/` ï¿½ automated tests for vault behavior, metadata processing, and security safeguards.
+- `mcp/requirements.txt` ï¿½ Python dependencies used by the MCP container.
+- `mcp/Dockerfile` ï¿½ builds the MCP container image.
+
 The dark theme is in `ui/.streamlit/config.toml`. Stop the stack with `docker compose down`; named volumes remain.
