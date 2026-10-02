@@ -1,4 +1,4 @@
-"""Luna Vault Streamlit application entry point."""
+﻿"""Luna Vault Streamlit application entry point."""
 
 import httpx
 import streamlit as st
@@ -25,8 +25,6 @@ def main() -> None:
             ":material/lock: Hidden Images",
         ]
     )
-    with upload_tab:
-        UploadPage(config).render()
 
     metadata_response = httpx.get(f"{config.api_url}/api/metadata", timeout=10.0)
     metadata_response.raise_for_status()
@@ -37,6 +35,9 @@ def main() -> None:
         for path in LunaVaultUI(config).list_vault_images()
         if path.name in metadata_by_name
     ]
+
+    with upload_tab:
+        UploadPage(config).render()
     with view_tab:
         ViewImagesPage(config).render(vault_images, metadata_by_name)
     with hidden_tab:
