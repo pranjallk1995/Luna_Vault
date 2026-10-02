@@ -55,11 +55,11 @@ class ViewPage(LunaVaultUI):
                 st_img_selector(
                     images=thumbnails,
                     value=[],
-                    corner_radius=10,
-                    selection_color="#A78BFA",
+                    corner_radius=self.config.gallery_corner_radius,
+                    selection_color=self.config.gallery_selection_color,
                     img_per_row=self.config.gallery_columns,
-                    border_thickness=4,
-                    max_row_height=240,
+                    border_thickness=self.config.gallery_border_thickness,
+                    max_row_height=self.config.gallery_max_row_height,
                     key=f"view_selector_{generation}_{current_page}_{row_start}",
                 )
                 or []
