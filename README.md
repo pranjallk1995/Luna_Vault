@@ -59,24 +59,24 @@ Optionally set `POSTGRES_PASSWORD`, then build and start:
 docker compose up --build
 ```
 
-The first run downloads the configured vision model. Open Luna Vault at
+Compose automatically pulls the configured vision model into the persistent
+`ollama_data` volume before starting MCP. Open Luna Vault at
 <http://127.0.0.1:18501>. The Hidden Images tab lets you create a password and an
 exactly 8-digit reset PIN; both are salted and hashed in PostgreSQL.
 
 ## Vision model
 
-The default model is `qwen2.5vl:7b`. Override it before starting the stack:
+The default model is `qwen2.5vl:7b`. To use a different Ollama vision model,
+set `VISION_MODEL` before starting the stack. For example, use Llama 3.2 Vision 11B:
 
 ```sh
-export VISION_MODEL=qwen2.5vl:7b
+export VISION_MODEL=llama3.2-vision:11b
 ```
 
-Ollama runs only on the private Compose network. No API key or external image service is used. Download the model once into the persistent `ollama_data` volume before starting the full stack:
-
-```sh
-docker compose up -d ollama
-docker compose exec ollama ollama pull qwen2.5vl:7b
-```
+Ollama runs only on the private Compose network. No API key or external image
+service is used. The `ollama-pull` Compose service downloads the selected model
+once into the persistent `ollama_data` volume, and MCP waits for that step to
+finish before it starts.
 
 
 ## Database UI
@@ -128,4 +128,30 @@ The UI source is bind-mounted at `/workspace/ui` and Streamlit reloads on edits.
 docker compose restart mcp
 ```
 
+
+### UI modules
+
+- `ui/app.py` — the small Streamlit entry point: creates the three tabs, loads image metadata, and passes data to each page.
+- `ui/config.py` — reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
+- `ui/pages/shared.py` — shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
+- `ui/pages/upload_page.py` — upload handling, progress feedback, and display of newly generated captions and tags.
+- `ui/pages/view_page.py` — visible-image search, gallery display, full-image viewing, downloads, and deletion.
+- `ui/pages/hidden_page.py` — hidden-vault authentication, hiding/restoring images, and hidden-image viewing, downloads, and deletion.
+- `ui/pages/__init__.py` — marks the page directory as a Python package.
+- `ui/.streamlit/config.toml` — Streamlit theme settings.
+- `ui/requirements.txt` — Python dependencies used by the UI container.
+- `ui/Dockerfile` — builds the UI container image.
+
+### MCP modules
+
+- `mcp/server.py` — FastMCP server entry point and the public image-management tools.
+- `mcp/vault.py` — image ingestion, metadata backfill, safe file operations, and search orchestration.
+- `mcp/vision.py` — Ollama vision requests plus validation and normalization of captions and tags.
+- `mcp/database.py` — PostgreSQL schema setup and metadata/search-index persistence and queries.
+- `mcp/security.py` — password and PIN handling plus hidden-vault authentication and sessions.
+- `mcp/config.py` — reads and validates MCP settings, including database, image, Ollama, and vision-model configuration.
+- `mcp/__init__.py` — marks the MCP directory as a Python package.
+- `mcp/tests/` — automated tests for vault behavior, metadata processing, and security safeguards.
+- `mcp/requirements.txt` — Python dependencies used by the MCP container.
+- `mcp/Dockerfile` — builds the MCP container image.
 The dark theme is in `ui/.streamlit/config.toml`. Stop the stack with `docker compose down`; named volumes remain.

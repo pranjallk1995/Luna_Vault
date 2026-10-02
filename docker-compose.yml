@@ -45,6 +45,16 @@ services:
       timeout: 5s
       retries: 12
 
+  ollama-pull:
+    image: ollama/ollama:latest
+    command: ["pull", "${VISION_MODEL:-qwen2.5vl:7b}"]
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - lunavault_network
+    depends_on:
+      ollama:
+        condition: service_healthy
   mcp:
     build: ./mcp
     working_dir: /workspace/mcp
@@ -68,6 +78,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), 2); s.close()"]
       interval: 10s
