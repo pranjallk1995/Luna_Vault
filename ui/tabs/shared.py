@@ -13,25 +13,17 @@ from config import UIConfig
 def cached_gallery_thumbnail(
     image_path: str,
     modified_ns: int,
-    card_size: tuple[int, int],
-    background_color: str,
-    padding: int,
+    max_size: tuple[int, int],
 ) -> Image.Image:
-    """Build and cache a gallery thumbnail until its source file changes."""
+    """Build a natural-aspect thumbnail bounded to the gallery card size."""
     del modified_ns  # Included in the cache key to invalidate modified images.
-    card_width, card_height = card_size
-    card = Image.new("RGB", card_size, background_color)
-    content_size = (max(1, card_width - padding), max(1, card_height - padding))
 
     with Image.open(image_path) as source:
-        source.draft("RGB", content_size)
+        source.draft("RGB", max_size)
         preview = ImageOps.exif_transpose(source).convert("RGB")
-        preview.thumbnail(content_size)
+        preview.thumbnail(max_size)
 
-    left = (card_width - preview.width) // 2
-    top = (card_height - preview.height) // 2
-    card.paste(preview, (left, top))
-    return card
+    return preview
 
 
 class LunaVaultUI:
@@ -119,8 +111,6 @@ class LunaVaultUI:
             str(image_path),
             image_path.stat().st_mtime_ns,
             self.config.card_size,
-            self.config.thumbnail_background_color,
-            self.config.thumbnail_padding,
         )
 
     @staticmethod

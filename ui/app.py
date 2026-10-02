@@ -1,4 +1,4 @@
-"""Luna Vault Streamlit application entry point."""
+﻿"""Luna Vault Streamlit application entry point."""
 
 import httpx
 import streamlit as st
@@ -15,7 +15,7 @@ def main() -> None:
     """Configure Streamlit and render the active Luna Vault page."""
     st.set_page_config(
         page_title="Luna Vault",
-        page_icon="🌙",
+        page_icon=":material/bedtime:",
         layout="wide",
         initial_sidebar_state="collapsed",
     )
@@ -44,19 +44,22 @@ def main() -> None:
 
     with upload_tab:
         render_section_intro(
-            "Ingest", "Add images",
+            "Ingest",
+            "Add images",
             "Upload one or many images and let Luna Vault generate searchable details.",
         )
         UploadPage(config).render()
     with view_tab:
         render_section_intro(
-            "Library", "Browse your vault",
+            "Library",
+            "Browse your vault",
             "Find, inspect, download, or remove images from your private collection.",
         )
         ViewImagesPage(config).render(vault_images, metadata_by_name)
     with hidden_tab:
         render_section_intro(
-            "Protected space", "Hidden vault",
+            "Protected space",
+            "Hidden vault",
             "Keep sensitive images behind a separate password-protected view.",
         )
         HiddenPage(config).render(vault_images)

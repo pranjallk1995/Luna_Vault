@@ -13,8 +13,6 @@ class UIConfig:
     image_dir: Path
     api_url: str
     card_size: tuple[int, int] = (420, 248)
-    thumbnail_background_color: str = "#171D33"
-    thumbnail_padding: int = 20
     gallery_corner_radius: int = 10
     gallery_selection_color: str = "#A78BFA"
     gallery_border_thickness: int = 4
