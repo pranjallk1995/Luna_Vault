@@ -91,6 +91,28 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             connection.execute("DELETE FROM image_metadata WHERE name = %s", (name,))
 
+    def update_metadata(
+        self, name: str, caption: str, tags: list[str]
+    ) -> dict[str, Any]:
+        """Update editable metadata and rebuild its full-text search vector."""
+        with psycopg.connect(self.database_url) as connection:
+            row = connection.execute(
+                """UPDATE image_metadata
+                   SET caption = %s,
+                       tags = %s,
+                       search_vector =
+                           setweight(to_tsvector('english', %s), 'A') ||
+                           setweight(to_tsvector('english', %s), 'B'),
+                       updated_at = now()
+                   WHERE name = %s AND hidden = false
+                   RETURNING name, size_bytes, content_sha256, caption, tags,
+                             analysis_model, updated_at, hidden""",
+                (caption, tags, caption, " ".join(tags), name),
+            ).fetchone()
+        if row is None:
+            raise FileNotFoundError(f"Visible image {name!r} was not found.")
+        return self._row_to_metadata(row)
+
     def list_all(self, hidden: bool | None = False) -> list[dict[str, Any]]:
         """List visible, hidden, or all records according to ``hidden``."""
         where = "" if hidden is None else "WHERE hidden = %s"

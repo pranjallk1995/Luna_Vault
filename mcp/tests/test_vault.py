@@ -35,6 +35,13 @@ class FakeRepository:
     def delete(self, name):
         self.rows.pop(name, None)
 
+    def update_metadata(self, name, caption, tags):
+        if name not in self.rows or self.rows[name].get("hidden", False):
+            raise FileNotFoundError(name)
+        self.rows[name]["caption"] = caption
+        self.rows[name]["tags"] = tags
+        return self.rows[name]
+
     def list_all(self, hidden=False):
         if hidden is None:
             return list(self.rows.values())
@@ -139,6 +146,26 @@ class ImageVaultServiceTests(unittest.TestCase):
         )
         self.assertEqual(result["normalized_query"], "cats")
         self.assertEqual(result["count"], 1)
+
+    def test_update_metadata_adds_tag_without_reanalysis(self):
+        self.service.ingest_base64("cat.png", png_payload())
+        result = self.service.update_metadata("cat.png", add_tags=["Pet Portrait"])
+        self.assertEqual(result["caption"], "A tabby cat on a sofa.")
+        self.assertEqual(result["tags"], ["cat", "sofa", "pet portrait"])
+
+    def test_update_metadata_changes_caption_and_removes_tag(self):
+        self.service.ingest_base64("cat.png", png_payload())
+        result = self.service.update_metadata(
+            "cat.png", caption="A relaxed indoor cat.", remove_tags=["sofa"]
+        )
+        self.assertEqual(result["caption"], "A relaxed indoor cat.")
+        self.assertEqual(result["tags"], ["cat"])
+
+    def test_update_metadata_rejects_hidden_images(self):
+        self.service.ingest_base64("cat.png", png_payload())
+        self.service.set_hidden(["cat.png"], True)
+        with self.assertRaises(PermissionError):
+            self.service.update_metadata("cat.png", add_tags=["private"])
 
     def test_authenticated_hidden_remove_deletes_file_and_metadata(self):
         self.service.ingest_base64("cat.png", png_payload())

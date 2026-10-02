@@ -49,6 +49,19 @@ class LunaVaultMCP:
             return {"status": "modified", **vault.ingest_base64(name, content_base64, replace=True)}
 
         @self.mcp.tool()
+        def update_image_metadata(
+            name: str,
+            caption: str | None = None,
+            add_tags: list[str] | None = None,
+            remove_tags: list[str] | None = None,
+        ) -> dict[str, Any]:
+            """Edit a visible image caption and add or remove searchable tags."""
+            return {
+                "status": "metadata_updated",
+                **vault.update_metadata(name, caption, add_tags, remove_tags),
+            }
+
+        @self.mcp.tool()
         def remove_image(name: str) -> dict[str, str]:
             """Remove a non-hidden image and its persisted metadata consistently."""
             return vault.remove(name)
