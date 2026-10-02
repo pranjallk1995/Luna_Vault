@@ -48,6 +48,8 @@ services:
   ollama-pull:
     image: ollama/ollama:latest
     command: ["pull", "${VISION_MODEL:-qwen2.5vl:7b}"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -55,6 +57,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+
   mcp:
     build: ./mcp
     working_dir: /workspace/mcp

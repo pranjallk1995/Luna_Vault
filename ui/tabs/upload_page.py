@@ -8,7 +8,7 @@ from uuid import uuid4
 import httpx
 import streamlit as st
 
-from pages.shared import LunaVaultUI
+from tabs.shared import LunaVaultUI
 
 
 class UploadPage(LunaVaultUI):

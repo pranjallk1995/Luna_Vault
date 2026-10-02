@@ -6,7 +6,7 @@ import httpx
 import streamlit as st
 from st_img_selector import st_img_selector
 
-from pages.shared import LunaVaultUI
+from tabs.shared import LunaVaultUI
 
 
 class GallerySelectionControls(LunaVaultUI):

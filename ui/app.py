@@ -1,13 +1,13 @@
-﻿"""Luna Vault Streamlit application entry point."""
+"""Luna Vault Streamlit application entry point."""
 
 import httpx
 import streamlit as st
 
 from config import UIConfig
-from pages.hidden_page import HiddenPage
-from pages.shared import LunaVaultUI
-from pages.upload_page import UploadPage
-from pages.view_page import ViewImagesPage
+from tabs.hidden_page import HiddenPage
+from tabs.shared import LunaVaultUI
+from tabs.upload_page import UploadPage
+from tabs.view_page import ViewImagesPage
 
 
 def main() -> None:
