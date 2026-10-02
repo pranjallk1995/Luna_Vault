@@ -100,6 +100,19 @@ nvidia-smi
 
 If NVIDIA passthrough is unavailable, remove `gpus: all` from the Ollama service to use the CPU fallback. Captioning will still work but will be slower.
 
+## MCP tools
+
+Luna Vault exposes these tools to connected MCP clients:
+
+- `list_images` — list visible images with captions and tags.
+- `view_image` — return a visible image.
+- `add_image` — add an image and generate metadata.
+- `modify_image` — replace a visible image and refresh its metadata.
+- `remove_image` — delete a visible image and its metadata.
+- `search_images` — search captions and tags without opening original images.
+- `backfill_metadata` — generate missing or stale metadata for imported files.
+
+Hidden-vault password and session endpoints are UI-only custom routes, not MCP tools.
 ## Metadata and search
 
 Every add, upload, or replacement is analyzed before it is committed. The generated caption, normalized tags, content hash, model name, and timestamps are stored in PostgreSQL. Deletion removes the file and its metadata consistently.
