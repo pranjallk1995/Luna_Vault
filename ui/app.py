@@ -1,4 +1,4 @@
-﻿"""Luna Vault Streamlit application entry point."""
+"""Luna Vault Streamlit application entry point."""
 
 import httpx
 import streamlit as st
@@ -6,6 +6,7 @@ import streamlit as st
 from config import UIConfig
 from styles import apply_app_styles, render_app_header, render_section_intro
 from tabs.hidden_page import HiddenPage
+from tabs.favorites_page import FavoritesPage
 from tabs.shared import LunaVaultUI
 from tabs.upload_page import UploadPage
 from tabs.view_page import ViewImagesPage
@@ -24,10 +25,11 @@ def main() -> None:
     apply_app_styles()
     render_app_header()
 
-    upload_tab, view_tab, hidden_tab = st.tabs(
+    upload_tab, view_tab, favorites_tab, hidden_tab = st.tabs(
         [
             ":material/upload: Upload Images",
             ":material/visibility: View Images",
+            ":material/star: Favorites",
             ":material/lock: Hidden Images",
         ]
     )
@@ -56,6 +58,13 @@ def main() -> None:
             "Find, inspect, download, or remove images from your private collection.",
         )
         ViewImagesPage(config).render(vault_images, metadata_by_name)
+    with favorites_tab:
+        render_section_intro(
+            "Curated",
+            "Your favorites",
+            "Keep the images you return to most in one focused collection.",
+        )
+        FavoritesPage(config).render(vault_images)
     with hidden_tab:
         render_section_intro(
             "Protected space",

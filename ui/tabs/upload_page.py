@@ -15,6 +15,7 @@ class UploadPage(LunaVaultUI):
     """Render uploads and persist AI-generated metadata results."""
 
     def upload_images(self, uploads: list) -> None:
+        """Upload new files and retain the metadata returned by ingestion."""
         pending = []
         for upload in uploads:
             content = upload.getbuffer()
@@ -67,6 +68,7 @@ class UploadPage(LunaVaultUI):
             progress.empty()
 
     def retry_upload(self, upload_id: str) -> None:
+        """Retry one previously failed upload."""
         failed = st.session_state.failed_uploads[upload_id]
         response = httpx.post(
             f"{self.config.api_url}/api/images",
@@ -84,11 +86,13 @@ class UploadPage(LunaVaultUI):
         del st.session_state.failed_uploads[upload_id]
     @staticmethod
     def clear_ui_state() -> None:
+        """Reset upload results and recreate the uploader widget."""
         st.session_state.uploaded_images = []
         st.session_state.saved_uploads = set()
         st.session_state.uploader_key += 1
 
     def render(self) -> None:
+        """Render the upload page interface."""
         uploads = st.file_uploader(
             ":material/upload_file: Drag and drop image files",
             type=["png", "jpg", "jpeg", "gif", "webp"],

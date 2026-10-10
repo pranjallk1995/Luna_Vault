@@ -26,6 +26,7 @@ class ImageVaultService:
         repository: MetadataRepository,
         analyzer: OllamaVisionAnalyzer,
     ) -> None:
+        """Initialize this component and its required dependencies."""
         self.config = config
         self.image_dir = config.image_dir
         self.repository = repository
@@ -78,6 +79,7 @@ class ImageVaultService:
             temporary.unlink(missing_ok=True)
 
     def _persist_analysis(self, name: str, data: bytes) -> dict[str, Any]:
+        """Persist generated image analysis and content identity."""
         analysis = self.analyzer.analyze(data)
         return self.repository.upsert(
             name=name,
@@ -135,6 +137,7 @@ class ImageVaultService:
         return path
 
     def _remove_path(self, name: str, path: Path) -> dict[str, str]:
+        """Delete an image and its metadata with file rollback on failure."""
         tombstone = path.with_name(f".{path.name}.{uuid4().hex}.deleting")
         path.replace(tombstone)
         try:
@@ -146,9 +149,11 @@ class ImageVaultService:
         return {"status": "deleted", "removed_name": name}
 
     def remove(self, name: str) -> dict[str, str]:
+        """Remove one visible image and its metadata."""
         return self._remove_path(name, self.visible_path(name))
 
     def remove_hidden(self, name: str) -> dict[str, str]:
+        """Remove one authenticated hidden image and its metadata."""
         path = self.safe_path(name)
         if not path.is_file():
             raise FileNotFoundError(f"Image {name!r} was not found.")
@@ -157,10 +162,16 @@ class ImageVaultService:
         return self._remove_path(name, path)
 
     def metadata(self) -> list[dict[str, Any]]:
+        """Return metadata for every visible image."""
         return self.repository.list_all(hidden=False)
 
     def hidden_metadata(self) -> list[dict[str, Any]]:
+        """Return metadata for every hidden image."""
         return self.repository.list_all(hidden=True)
+
+    def favorite_metadata(self) -> list[dict[str, Any]]:
+        """Return metadata for visible images marked as favorites."""
+        return self.repository.list_favorites()
 
     def update_metadata(
         self,
@@ -221,7 +232,23 @@ class ImageVaultService:
             "count": len(changed),
         }
 
+    def set_favorite(self, names: list[str], favorite: bool) -> dict[str, Any]:
+        """Add validated visible images to Favorites or remove them."""
+        if not isinstance(names, list) or not names:
+            raise ValueError("Select at least one image.")
+        clean_names = []
+        for name in dict.fromkeys(names):
+            self.visible_path(name)
+            clean_names.append(name)
+        changed = self.repository.set_favorite(clean_names, favorite)
+        return {
+            "status": "favorited" if favorite else "unfavorited",
+            "names": changed,
+            "count": len(changed),
+        }
+
     def normalize_search_query(self, query: str) -> str:
+        """Normalize natural-language search text for indexed lookup."""
         words = re.findall(r"[a-z0-9]+", query.lower())
         return " ".join(
             word for word in words if word not in self.config.search_stop_words

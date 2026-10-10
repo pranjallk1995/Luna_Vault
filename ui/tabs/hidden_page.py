@@ -4,92 +4,48 @@ from pathlib import Path
 
 import httpx
 import streamlit as st
-from st_img_selector import st_img_selector
+from tabs.gallery import SelectableGallery
 
-from tabs.shared import LunaVaultUI
-
-
-class GallerySelectionControls(LunaVaultUI):
-    """Provide reusable image-selection controls for active pages."""
-
-    def _selection_gallery(
-        self,
-        images: list[Path],
-        page: int,
-        generation: int,
-        state_key: str,
-        key_prefix: str,
-        allow_hidden_actions: bool = False,
-    ) -> None:
-        for row_start in range(0, len(images), self.config.gallery_columns):
-            row_images = images[row_start : row_start + self.config.gallery_columns]
-            row_names = {path.name for path in row_images}
-            selected_indices = [
-                index
-                for index, path in enumerate(row_images)
-                if path.name in st.session_state[state_key]
-            ]
-            values = (
-                st_img_selector(
-                    images=[self.create_gallery_thumbnail(path) for path in row_images],
-                    value=selected_indices,
-                    corner_radius=self.config.gallery_corner_radius,
-                    selection_color=self.config.gallery_selection_color,
-                    img_per_row=self.config.gallery_columns,
-                    border_thickness=self.config.gallery_border_thickness,
-                    max_row_height=self.config.gallery_max_row_height,
-                    key=f"{key_prefix}_{generation}_{page}_{row_start}",
-                )
-                or []
-            )
-            st.session_state[state_key].difference_update(row_names)
-            st.session_state[state_key].update(
-                row_images[index].name
-                for index in values
-                if 0 <= index < len(row_images)
-            )
-            self.render_filename_row(row_images)
-
-            if allow_hidden_actions:
-                action_columns = st.columns(self.config.gallery_columns)
-                for column, image_path in zip(action_columns, row_images):
-                    view_column, download_column, delete_column = column.columns(3)
-                    if view_column.button(
-                        ":material/fullscreen:",
-                        help="View full image",
-                        width="stretch",
-                        key=f"hidden_full_{generation}_{page}_{image_path.name}",
-                    ):
-
-                        @st.dialog(self.display_name(image_path.name), width="large")
-                        def show_hidden_full_image(path: Path = image_path) -> None:
-                            st.image(path, width="stretch")
-
-                        show_hidden_full_image()
-                    download_column.download_button(
-                        ":material/download:",
-                        data=image_path.read_bytes(),
-                        file_name=self.display_name(image_path.name),
-                        mime=f"image/{image_path.suffix.lower().lstrip('.')}",
-                        help="Download image",
-                        width="stretch",
-                        key=f"hidden_download_{generation}_{page}_{image_path.name}",
-                    )
-                    if delete_column.button(
-                        ":material/delete:",
-                        help="Delete hidden image",
-                        width="stretch",
-                        key=f"hidden_delete_{generation}_{page}_{image_path.name}",
-                    ):
-                        st.session_state.pending_hidden_delete = image_path.name
-                        st.rerun()
-
-
-# ---------------- Hidden Page ----------------
-class HiddenPage(GallerySelectionControls):
+class HiddenPage(SelectableGallery):
     """Render authenticated hidden-image management workflows."""
 
+    def _render_hidden_actions(
+        self, column, image_path: Path, generation: int, page: int
+    ) -> None:
+        """Render item actions available inside the authenticated vault."""
+        view_column, download_column, delete_column = column.columns(3)
+        if view_column.button(
+            ":material/fullscreen:",
+            help="View full image",
+            width="stretch",
+            key=f"hidden_full_{generation}_{page}_{image_path.name}",
+        ):
+
+            @st.dialog(self.display_name(image_path.name), width="large")
+            def show_hidden_full_image(path: Path = image_path) -> None:
+                """Render the selected image at full size."""
+                st.image(path, width="stretch")
+
+            show_hidden_full_image()
+        download_column.download_button(
+            ":material/download:",
+            data=image_path.read_bytes(),
+            file_name=self.display_name(image_path.name),
+            mime=f"image/{image_path.suffix.lower().lstrip('.')}",
+            help="Download image",
+            width="stretch",
+            key=f"hidden_download_{generation}_{page}_{image_path.name}",
+        )
+        if delete_column.button(
+            ":material/delete:",
+            help="Delete hidden image",
+            width="stretch",
+            key=f"hidden_delete_{generation}_{page}_{image_path.name}",
+        ):
+            st.session_state.pending_hidden_delete = image_path.name
+
     def _post(self, route: str, payload: dict, authenticated: bool = False) -> dict:
+        """Post JSON to a Hidden Vault endpoint with optional authentication."""
         headers = {}
         if authenticated:
             headers["Authorization"] = f"Bearer {st.session_state.hidden_auth_token}"
@@ -102,6 +58,7 @@ class HiddenPage(GallerySelectionControls):
         return response.json()
 
     def _authenticate(self) -> bool:
+        """Render setup or login controls and report whether the vault is unlocked."""
         status = httpx.get(f"{self.config.api_url}/api/hidden/status", timeout=10.0)
         status.raise_for_status()
         configured = status.json()["configured"]
@@ -172,6 +129,7 @@ class HiddenPage(GallerySelectionControls):
         return False
 
     def _move_selected(self, route: str, state_key: str) -> None:
+        """Move the selected images into or out of the Hidden Vault."""
         names = sorted(st.session_state[state_key])
         self._post(route, {"names": names}, authenticated=True)
         st.session_state[state_key] = set()
@@ -193,28 +151,21 @@ class HiddenPage(GallerySelectionControls):
         route: str,
         allow_hidden_actions: bool = False,
     ) -> None:
+        """Render one selectable collection and its bulk action."""
         valid_names = {path.name for path in images}
-        st.session_state[selection_key].intersection_update(valid_names)
         if st.session_state.pending_hidden_delete not in valid_names:
             st.session_state.pending_hidden_delete = None
-        if not images:
-            st.session_state[page_key] = 0
-            st.info(empty_message)
-            return
-        generation = st.session_state[generation_key]
-        page, page_images = self.paginated_images(
-            images, page_key, f"{prefix}_{generation}"
-        )
-        self.render_gallery_transition_marker(page_key)
-        self._selection_gallery(
-            page_images,
-            page,
-            generation,
+        rendered = self.render_selectable_collection(
+            images,
+            empty_message,
+            page_key,
             selection_key,
+            generation_key,
             prefix,
-            allow_hidden_actions,
+            self._render_hidden_actions if allow_hidden_actions else None,
         )
-        self.finish_gallery_transition(page_key)
+        if not rendered:
+            return
 
         pending_name = st.session_state.pending_hidden_delete
         if allow_hidden_actions and pending_name:
@@ -257,6 +208,7 @@ class HiddenPage(GallerySelectionControls):
                 st.error(error.response.json().get("error", "The action failed."))
 
     def render(self, visible_images: list[Path]) -> None:
+        """Render the hidden page interface."""
         if not self._authenticate():
             return
         header, logout_column = st.columns([3, 1])
@@ -288,47 +240,21 @@ class HiddenPage(GallerySelectionControls):
         hidden_images = [
             path for path in self.list_vault_images() if path.name in hidden_names
         ]
-        mode = st.segmented_control(
-            "Hidden image action",
-            ["Hidden images", "Add images"],
-            default="Hidden images",
-            label_visibility="collapsed",
-            key="hidden_action_mode",
-            width="stretch",
+        hidden_tab, add_tab = st.tabs(
+            [":material/lock: Hidden images", ":material/add: Add images"]
         )
-        search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
-        query = (
-            search_column.text_input(
-                "Search hidden vault by image name",
-                placeholder="Type part of a filename",
-                key="hidden_name_search",
-                icon=":material/search:",
+        with hidden_tab:
+            query = self.render_collection_search(
+                "Search hidden vault by image name", "hidden_name_search"
             )
-            .strip()
-            .casefold()
-        )
-        clear_column.button(
-            ":material/close:",
-            key="clear_hidden_name_search",
-            help="Clear search",
-            on_click=self.clear_search,
-            args=("hidden_name_search",),
-            width="stretch",
-        )
-        hidden_images = [
-            path
-            for path in hidden_images
-            if query in self.display_name(path.name).casefold()
-        ]
-        visible_images = [
-            path
-            for path in visible_images
-            if query in self.display_name(path.name).casefold()
-        ]
-        if mode == "Hidden images":
+            filtered_hidden = [
+                path
+                for path in hidden_images
+                if query in self.display_name(path.name).casefold()
+            ]
             self._render_collection(
-                hidden_images,
-                "No images are hidden.",
+                filtered_hidden,
+                "No hidden images match this search." if query else "No images are hidden.",
                 "hidden_page",
                 "hidden_selection",
                 "hidden_generation",
@@ -337,10 +263,21 @@ class HiddenPage(GallerySelectionControls):
                 "/api/hidden/restore",
                 True,
             )
-        else:
+
+        with add_tab:
+            query = self.render_collection_search(
+                "Search images to hide by name", "hide_name_search"
+            )
+            filtered_visible = [
+                path
+                for path in visible_images
+                if query in self.display_name(path.name).casefold()
+            ]
             self._render_collection(
-                visible_images,
-                "No visible images are available.",
+                filtered_visible,
+                "No visible images match this search."
+                if query
+                else "No visible images are available.",
                 "hide_page",
                 "hide_selection",
                 "hide_generation",

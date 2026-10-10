@@ -1,3 +1,5 @@
+"""Tests for test vault behavior."""
+
 import base64
 import sys
 import tempfile
@@ -15,10 +17,13 @@ from vision import ImageAnalysis, OllamaVisionAnalyzer
 
 
 class FakeRepository:
+    """Provide an in-memory repository test double."""
     def __init__(self) -> None:
+        """Initialize this component and its required dependencies."""
         self.rows = {}
 
     def upsert(self, name, size_bytes, content_sha256, caption, tags, analysis_model):
+        """Insert or replace one record in the test repository."""
         row = {
             "name": name,
             "size_bytes": size_bytes,
@@ -28,14 +33,17 @@ class FakeRepository:
             "analysis_model": analysis_model,
             "updated_at": "test",
             "hidden": self.rows.get(name, {}).get("hidden", False),
+            "favorite": self.rows.get(name, {}).get("favorite", False),
         }
         self.rows[name] = row
         return row
 
     def delete(self, name):
+        """Delete one metadata record by filename."""
         self.rows.pop(name, None)
 
     def update_metadata(self, name, caption, tags):
+        """Update caption and tags in the test repository."""
         if name not in self.rows or self.rows[name].get("hidden", False):
             raise FileNotFoundError(name)
         self.rows[name]["caption"] = caption
@@ -43,16 +51,19 @@ class FakeRepository:
         return self.rows[name]
 
     def list_all(self, hidden=False):
+        """Return test metadata filtered by hidden state."""
         if hidden is None:
             return list(self.rows.values())
         return [row for row in self.rows.values() if row.get("hidden", False) == hidden]
 
     def is_hidden(self, name):
+        """Return whether the named image belongs to the Hidden Vault."""
         if name not in self.rows:
             raise FileNotFoundError(name)
         return self.rows[name].get("hidden", False)
 
     def set_hidden(self, names, hidden):
+        """Persist hidden state for the supplied image names."""
         changed = []
         for name in names:
             if name in self.rows and self.rows[name].get("hidden", False) != hidden:
@@ -60,7 +71,25 @@ class FakeRepository:
                 changed.append(name)
         return changed
 
+    def list_favorites(self):
+        """Return visible favorite records from the test repository."""
+        return [
+            row for row in self.rows.values()
+            if row.get("favorite", False) and not row.get("hidden", False)
+        ]
+
+    def set_favorite(self, names, favorite):
+        """Update favorite state in the test repository."""
+        changed = []
+        for name in names:
+            row = self.rows.get(name)
+            if row and not row.get("hidden", False) and row.get("favorite") != favorite:
+                row["favorite"] = favorite
+                changed.append(name)
+        return changed
+
     def search(self, query, tags, match_all, limit, offset):
+        """Return matching visible metadata from the test repository."""
         matches = [
             {
                 "name": row["name"],
@@ -79,25 +108,31 @@ class FakeRepository:
 
 
 class FakeAnalyzer:
+    """Provide an in-memory analyzer test double."""
     model = "test-vision"
 
     def analyze(self, data):
+        """Return deterministic image analysis for tests."""
         del data
         return ImageAnalysis(caption="A tabby cat on a sofa.", tags=["cat", "sofa"])
 
     @staticmethod
     def normalize_tags(tags):
+        """Normalize tags deterministically for tests."""
         return [tag.lower() for tag in tags]
 
 
 def png_payload(color="red"):
+    """Create a small valid PNG payload for vault tests."""
     buffer = BytesIO()
     Image.new("RGB", (4, 3), color).save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 class ImageVaultServiceTests(unittest.TestCase):
+    """Exercise ImageVaultService behavior."""
     def setUp(self):
+        """Create isolated dependencies for each test case."""
         self.temp = tempfile.TemporaryDirectory()
         self.repository = FakeRepository()
         self.config = AppConfig(
@@ -109,9 +144,11 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.service = ImageVaultService(self.config, self.repository, FakeAnalyzer())
 
     def tearDown(self):
+        """Release temporary resources created for a test case."""
         self.temp.cleanup()
 
     def test_vision_preprocessing_bounds_dimensions(self):
+        """Verify vision preprocessing bounds dimensions."""
         raw = BytesIO()
         Image.new("RGB", (2400, 1600), "blue").save(raw, format="PNG")
         prepared = OllamaVisionAnalyzer.prepare_image(raw.getvalue())
@@ -120,12 +157,14 @@ class ImageVaultServiceTests(unittest.TestCase):
             self.assertEqual(image.format, "JPEG")
 
     def test_ingest_persists_generated_metadata(self):
+        """Verify ingest persists generated metadata."""
         result = self.service.ingest_base64("cat.png", png_payload())
         self.assertEqual(result["caption"], "A tabby cat on a sofa.")
         self.assertEqual(result["tags"], ["cat", "sofa"])
         self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
 
     def test_replacing_image_adds_ai_modified_tag(self):
+        """Verify replacing image adds ai modified tag."""
         self.service.ingest_base64("cat.png", png_payload())
         result = self.service.ingest_base64(
             "cat.png", png_payload("blue"), replace=True
@@ -134,12 +173,14 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["tags"].count("ai modified"), 1)
 
     def test_remove_deletes_file_and_metadata(self):
+        """Verify remove deletes file and metadata."""
         self.service.ingest_base64("cat.png", png_payload())
         self.service.remove("cat.png")
         self.assertFalse((Path(self.temp.name) / "cat.png").exists())
         self.assertNotIn("cat.png", self.repository.rows)
 
     def test_natural_count_query_uses_metadata(self):
+        """Verify natural count query uses metadata."""
         self.service.ingest_base64("cat.png", png_payload())
         result = self.service.search(
             "how many images are about cats?", None, False, 50, 0
@@ -148,12 +189,14 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["count"], 1)
 
     def test_update_metadata_adds_tag_without_reanalysis(self):
+        """Verify update metadata adds tag without reanalysis."""
         self.service.ingest_base64("cat.png", png_payload())
         result = self.service.update_metadata("cat.png", add_tags=["Pet Portrait"])
         self.assertEqual(result["caption"], "A tabby cat on a sofa.")
         self.assertEqual(result["tags"], ["cat", "sofa", "pet portrait"])
 
     def test_update_metadata_changes_caption_and_removes_tag(self):
+        """Verify update metadata changes caption and removes tag."""
         self.service.ingest_base64("cat.png", png_payload())
         result = self.service.update_metadata(
             "cat.png", caption="A relaxed indoor cat.", remove_tags=["sofa"]
@@ -162,12 +205,14 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["tags"], ["cat"])
 
     def test_update_metadata_rejects_hidden_images(self):
+        """Verify update metadata rejects hidden images."""
         self.service.ingest_base64("cat.png", png_payload())
         self.service.set_hidden(["cat.png"], True)
         with self.assertRaises(PermissionError):
             self.service.update_metadata("cat.png", add_tags=["private"])
 
     def test_authenticated_hidden_remove_deletes_file_and_metadata(self):
+        """Verify authenticated hidden remove deletes file and metadata."""
         self.service.ingest_base64("cat.png", png_payload())
         self.service.set_hidden(["cat.png"], True)
         result = self.service.remove_hidden("cat.png")
@@ -176,6 +221,7 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertNotIn("cat.png", self.repository.rows)
 
     def test_hidden_images_are_excluded_and_protected(self):
+        """Verify hidden images are excluded and protected."""
         self.service.ingest_base64("cat.png", png_payload())
         self.service.set_hidden(["cat.png"], True)
         self.assertEqual(self.service.metadata(), [])
@@ -187,6 +233,19 @@ class ImageVaultServiceTests(unittest.TestCase):
         result = self.service.search("cats", None, False, 50, 0)
         self.assertEqual(result["count"], 0)
 
+
+    def test_favorites_are_persisted_and_hidden_images_are_excluded(self):
+        """Verify favorites are persisted and hidden images are excluded."""
+        self.service.ingest_base64("cat.png", png_payload())
+        result = self.service.set_favorite(["cat.png"], True)
+        self.assertEqual(result["status"], "favorited")
+        self.assertEqual(result["names"], ["cat.png"])
+        self.assertEqual(
+            [item["name"] for item in self.service.favorite_metadata()],
+            ["cat.png"],
+        )
+        self.service.set_hidden(["cat.png"], True)
+        self.assertEqual(self.service.favorite_metadata(), [])
 
 if __name__ == "__main__":
     unittest.main()

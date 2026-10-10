@@ -13,6 +13,7 @@ class ViewPage(LunaVaultUI):
     """Render the searchable visible-image gallery and item actions."""
 
     def delete_image(self, image_path: Path) -> None:
+        """Delete one visible image through the normal vault lifecycle."""
         response = httpx.delete(
             f"{self.config.api_url}/api/images/{image_path.name}", timeout=30.0
         )
@@ -31,6 +32,7 @@ class ViewPage(LunaVaultUI):
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
+        """Render the view page interface."""
         if not vault_images:
             st.session_state.view_page = 0
             st.session_state.pending_view_delete = None
@@ -124,6 +126,7 @@ class ViewPage(LunaVaultUI):
 
             @st.dialog(self.display_name(clicked_image.name), width="large")
             def show_full_size_image() -> None:
+                """Render the selected image at full size."""
                 st.image(clicked_image, width="stretch")
 
             show_full_size_image()
@@ -136,6 +139,7 @@ class ViewImagesPage(LunaVaultUI):
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
+        """Render the view page interface."""
         search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
         query = (
             search_column.text_input(

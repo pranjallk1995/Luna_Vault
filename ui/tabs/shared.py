@@ -31,12 +31,14 @@ class LunaVaultUI:
     """Provide shared state, image, pagination, and gallery UI behavior."""
 
     def __init__(self, config: UIConfig) -> None:
+        """Initialize this component and its required dependencies."""
         self.config = config
         self.image_dir = config.image_dir
         self.image_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def initialize_state() -> None:
+        """Initialize all Streamlit session-state values used by the application."""
         defaults = {
             "saved_uploads": set(),
             "uploaded_images": [],
@@ -59,6 +61,13 @@ class LunaVaultUI:
             "hide_generation": 0,
             "hide_page": 0,
             "hide_selection": set(),
+            "favorite_generation": 0,
+            "favorite_page": 0,
+            "favorite_selection": set(),
+            "pending_favorite_delete": None,
+            "add_favorite_generation": 0,
+            "add_favorite_page": 0,
+            "add_favorite_selection": set(),
             "gallery_transitions": {},
         }
         for key, value in defaults.items():
@@ -67,6 +76,7 @@ class LunaVaultUI:
 
     @staticmethod
     def clear_search(state_key: str) -> None:
+        """Reset a named search field in Streamlit session state."""
         st.session_state[state_key] = ""
 
     def list_vault_images(self) -> list[Path]:
@@ -84,6 +94,7 @@ class LunaVaultUI:
 
     @staticmethod
     def display_name(stored_name: str) -> str:
+        """Remove the internal storage prefix from a user-facing filename."""
         prefix, separator, original_name = stored_name.partition("_")
         if (
             separator
@@ -94,6 +105,7 @@ class LunaVaultUI:
         return stored_name
 
     def render_image_name(self, container, stored_name: str) -> None:
+        """Render a single-line, truncated filename with its full value as a tooltip."""
         display_name = html.escape(self.display_name(stored_name), quote=True)
         container.markdown(
             f"""<div title="{display_name}" style="
@@ -109,6 +121,7 @@ class LunaVaultUI:
         )
 
     def create_gallery_thumbnail(self, image_path: Path) -> Image.Image:
+        """Return a cached, aspect-preserving thumbnail for a vault image."""
         return cached_gallery_thumbnail(
             str(image_path),
             image_path.stat().st_mtime_ns,
@@ -206,6 +219,7 @@ class LunaVaultUI:
     def paginated_images(
         self, vault_images: list[Path], page_state_key: str, key_prefix: str
     ) -> tuple[int, list[Path]]:
+        """Render pagination controls and return the images on the active page."""
         page_count = (
             len(vault_images) + self.config.images_per_page - 1
         ) // self.config.images_per_page
@@ -223,6 +237,7 @@ class LunaVaultUI:
         row_images: list[Path],
         metadata_by_name: dict[str, dict] | None = None,
     ) -> None:
+        """Render filenames and optional persisted metadata below one gallery row."""
         filename_columns = st.columns(self.config.gallery_columns)
         for column, image_path in zip(filename_columns, row_images):
             self.render_image_name(column, image_path.name)

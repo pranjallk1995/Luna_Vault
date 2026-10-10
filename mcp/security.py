@@ -15,6 +15,7 @@ class HiddenVaultAuth:
     """Persist hashed credentials and issue short-lived in-memory sessions."""
 
     def __init__(self, repository: MetadataRepository, config: AppConfig) -> None:
+        """Initialize this component and its required dependencies."""
         self.repository = repository
         self.iterations = config.password_hash_iterations
         self.session_seconds = config.hidden_session_seconds
@@ -23,22 +24,27 @@ class HiddenVaultAuth:
 
     @staticmethod
     def _hash(value: str, salt: bytes, iterations: int) -> bytes:
+        """Derive a password hash using the configured salt and iteration count."""
         return hashlib.pbkdf2_hmac("sha256", value.encode(), salt, iterations)
 
     @staticmethod
     def validate_password(password: str) -> None:
+        """Validate a Hidden Vault password against policy."""
         if len(password) < 8:
             raise ValueError("Password must contain at least 8 characters.")
 
     @staticmethod
     def validate_pin(pin: str) -> None:
+        """Validate that a reset PIN contains exactly eight digits."""
         if not re.fullmatch(r"\d{8}", pin):
             raise ValueError("Reset PIN must be exactly 8 digits.")
 
     def configured(self) -> bool:
+        """Return whether Hidden Vault credentials have been configured."""
         return self.repository.security_credentials() is not None
 
     def _new_session(self) -> str:
+        """Create and retain a new authenticated Hidden Vault session."""
         token = secrets.token_urlsafe(32)
         now = time.monotonic()
         with self._lock:
@@ -100,5 +106,6 @@ class HiddenVaultAuth:
             self._sessions[token] = now + self.session_seconds
 
     def logout(self, token: str | None) -> None:
+        """Invalidate a Hidden Vault session token."""
         with self._lock:
             self._sessions.pop(token or "", None)

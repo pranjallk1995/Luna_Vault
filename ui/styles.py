@@ -36,7 +36,31 @@ def apply_app_styles() -> None:
         div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(17,24,42,.5); }
         div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
         div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(17,24,42,.66); }
-        div[data-testid="stSegmentedControl"] { padding:.25rem; border:1px solid var(--lv-border); border-radius:.85rem; background:rgba(17,24,42,.66); }
+        /* Shared control system: native, icon, form, and download buttons. */
+        .stButton > button,.stDownloadButton > button,
+        div[data-testid="stFormSubmitButton"] > button,
+        button[data-testid^="stBaseButton"] {
+            min-height:2.625rem!important; height:2.625rem;
+            padding:.45rem .9rem!important; border:1px solid var(--lv-border)!important;
+            border-radius:.5rem!important; background:#121a2d!important;
+            color:#e8edf7!important; font-weight:650!important;
+            box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+        }
+        .stButton > button:hover,.stDownloadButton > button:hover,
+        div[data-testid="stFormSubmitButton"] > button:hover,
+        button[data-testid^="stBaseButton"]:hover {
+            border-color:var(--lv-strong)!important; background:#1a2440!important;
+            color:#fff!important; transform:translateY(-1px);
+        }
+        .stButton > button:focus-visible,.stDownloadButton > button:focus-visible,
+        button[data-testid^="stBaseButton"]:focus-visible {
+            outline:2px solid var(--lv-accent)!important; outline-offset:2px;
+        }
+        button[data-testid="stBaseButton-primary"],button[kind="primary"] {
+            border-color:transparent!important; background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important;
+        }
+        button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
+        div[data-baseweb="input"] > div,div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
         .lv-gallery-transition { display:none; }
         @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }
         @keyframes lv-gallery-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }

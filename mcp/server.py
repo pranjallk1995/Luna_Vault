@@ -18,6 +18,7 @@ class LunaVaultMCP:
     """Register MCP tools and authenticated UI-facing HTTP routes."""
 
     def __init__(self, vault: ImageVaultService, auth: HiddenVaultAuth) -> None:
+        """Initialize this component and its required dependencies."""
         self.vault = vault
         self.auth = auth
         self.mcp = FastMCP("Luna Vault", host="0.0.0.0", port=8000)
@@ -25,6 +26,7 @@ class LunaVaultMCP:
         self._register_routes()
 
     def _register_tools(self) -> None:
+        """Register the public MCP image-management tools."""
         vault = self.vault
 
         @self.mcp.tool()
@@ -80,11 +82,13 @@ class LunaVaultMCP:
 
     @staticmethod
     def _token(request: Request) -> str | None:
+        """Extract a bearer token from an HTTP request."""
         header = request.headers.get("authorization", "")
         return header[7:] if header.lower().startswith("bearer ") else None
 
     @staticmethod
     async def _payload(request: Request) -> dict[str, Any]:
+        """Parse and validate a JSON object request body."""
         value = await request.json()
         if not isinstance(value, dict):
             raise ValueError("Request body must be a JSON object.")
@@ -92,19 +96,23 @@ class LunaVaultMCP:
 
     @staticmethod
     def _error(error: Exception) -> JSONResponse:
+        """Translate an application exception into a JSON error response."""
         status = 401 if isinstance(error, PermissionError) else 400
         return JSONResponse({"error": str(error)}, status_code=status)
 
     def _register_routes(self) -> None:
+        """Register HTTP routes used by the Streamlit interface."""
         vault, auth = self.vault, self.auth
 
         @self.mcp.custom_route("/api/metadata", methods=["GET"])
         async def metadata_route(request: Request) -> JSONResponse:
+            """Return visible image metadata to the UI."""
             del request
             return JSONResponse({"images": vault.metadata()})
 
         @self.mcp.custom_route("/api/images", methods=["POST"])
         async def upload_route(request: Request) -> JSONResponse:
+            """Ingest an uploaded image and return its generated metadata."""
             try:
                 payload = await self._payload(request)
                 result = vault.ingest_base64(payload["name"], payload["content_base64"], replace=False)
@@ -114,18 +122,41 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/images/{name}", methods=["DELETE"])
         async def delete_route(request: Request) -> JSONResponse:
+            """Delete one visible image requested by the UI."""
             try:
                 return JSONResponse(vault.remove(request.path_params["name"]))
             except Exception as error:
                 return self._error(error)
 
+        @self.mcp.custom_route("/api/favorites", methods=["GET"])
+        async def favorites_route(request: Request) -> JSONResponse:
+            """Return persisted visible favorites to the UI."""
+            del request
+            return JSONResponse({"images": vault.favorite_metadata()})
+
+        @self.mcp.custom_route("/api/favorites", methods=["POST"])
+        async def update_favorites_route(request: Request) -> JSONResponse:
+            """Add or remove selected visible images from Favorites."""
+            try:
+                payload = await self._payload(request)
+                favorite = payload.get("favorite")
+                if not isinstance(favorite, bool):
+                    raise ValueError("favorite must be true or false.")
+                return JSONResponse(
+                    vault.set_favorite(payload.get("names", []), favorite)
+                )
+            except Exception as error:
+                return self._error(error)
+
         @self.mcp.custom_route("/api/hidden/status", methods=["GET"])
         async def hidden_status_route(request: Request) -> JSONResponse:
+            """Report whether Hidden Vault access has been configured."""
             del request
             return JSONResponse({"configured": auth.configured()})
 
         @self.mcp.custom_route("/api/hidden/setup", methods=["POST"])
         async def hidden_setup_route(request: Request) -> JSONResponse:
+            """Create Hidden Vault credentials and an authenticated session."""
             try:
                 payload = await self._payload(request)
                 token = auth.setup(payload.get("password", ""), str(payload.get("pin", "")))
@@ -135,6 +166,7 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/hidden/login", methods=["POST"])
         async def hidden_login_route(request: Request) -> JSONResponse:
+            """Authenticate a Hidden Vault password."""
             try:
                 payload = await self._payload(request)
                 return JSONResponse({"token": auth.login(payload.get("password", ""))})
@@ -143,6 +175,7 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/hidden/reset", methods=["POST"])
         async def hidden_reset_route(request: Request) -> JSONResponse:
+            """Reset the Hidden Vault password using the reset PIN."""
             try:
                 payload = await self._payload(request)
                 token = auth.reset(str(payload.get("pin", "")), payload.get("new_password", ""))
@@ -152,11 +185,13 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/hidden/logout", methods=["POST"])
         async def hidden_logout_route(request: Request) -> JSONResponse:
+            """Invalidate the current Hidden Vault session."""
             auth.logout(self._token(request))
             return JSONResponse({"status": "logged_out"})
 
         @self.mcp.custom_route("/api/hidden/images", methods=["GET"])
         async def hidden_images_route(request: Request) -> JSONResponse:
+            """Return hidden image metadata to an authenticated UI."""
             try:
                 auth.require(self._token(request))
                 return JSONResponse({"images": vault.hidden_metadata()})
@@ -165,6 +200,7 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/hidden/hide", methods=["POST"])
         async def hide_images_route(request: Request) -> JSONResponse:
+            """Move selected visible images into the Hidden Vault."""
             try:
                 auth.require(self._token(request))
                 payload = await self._payload(request)
@@ -174,6 +210,7 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/hidden/delete", methods=["POST"])
         async def delete_hidden_images_route(request: Request) -> JSONResponse:
+            """Delete selected authenticated hidden images."""
             try:
                 auth.require(self._token(request))
                 payload = await self._payload(request)
@@ -187,6 +224,7 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/api/hidden/restore", methods=["POST"])
         async def restore_images_route(request: Request) -> JSONResponse:
+            """Restore selected hidden images to the visible vault."""
             try:
                 auth.require(self._token(request))
                 payload = await self._payload(request)

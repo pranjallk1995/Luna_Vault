@@ -14,8 +14,8 @@ searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the index
 collection available to AI assistants of your choice (ChatGPT here) for fast search and safe image-management
 operations without repeatedly opening every original image.
 
-The Streamlit interface lets you upload, search, view, download, hide, restore,
-and delete images. Image data, metadata, and AI models persist in Docker volumes,
+The Streamlit interface lets you upload, search, view, favorite, download, hide,
+restore, and delete images. Image data, metadata, and AI models persist in Docker volumes,
 while the password-protected hidden vault stays separate from normal galleries
 and searches.
 
@@ -32,7 +32,12 @@ Its MCP tools let an AI assistant find and act on groups of images while keeping
 the stored files and their searchable metadata synchronized.
 
 The main gallery provides filename search, pagination, AI-generated captions and
-tags, full-size viewing, downloads, and deletion controls.
+tags, full-size viewing, downloads, and deletion controls. Persisted Favorites
+provide a focused collection for images you return to often.
+
+<p align="center">
+  <img src="docs/assets/luna-vault-gallery.png" alt="Luna Vault gallery with AI-generated captions and image controls" width="760">
+</p>
 
 The hidden vault keeps private images behind a password and supports adding,
 viewing, downloading, restoring, searching, and deleting them separately.
@@ -131,13 +136,16 @@ docker compose restart mcp
 
 ### UI modules
 
-- `ui/app.py` - the small Streamlit entry point: creates the three tabs, loads image metadata, and passes data to each page.
+- `ui/app.py` - the small Streamlit entry point: creates the four tabs, loads image metadata, and passes data to each page.
 - `ui/config.py` - reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
-- `ui/pages/shared.py` - shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
-- `ui/pages/upload_page.py` - upload handling, progress feedback, and display of newly generated captions and tags.
-- `ui/pages/view_page.py` - visible-image search, gallery display, full-image viewing, downloads, and deletion.
-- `ui/pages/hidden_page.py` - hidden-vault authentication, hiding/restoring images, and hidden-image viewing, downloads, and deletion.
-- `ui/pages/__init__.py` - marks the page directory as a Python package.
+- `ui/styles.py` - maintains the shared dark visual system, component spacing, and control styling.
+- `ui/tabs/shared.py` - shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
+- `ui/tabs/gallery.py` - reusable selectable-gallery structure shared by Favorites and Hidden Images.
+- `ui/tabs/upload_page.py` - upload handling, progress feedback, and display of newly generated captions and tags.
+- `ui/tabs/view_page.py` - visible-image search, gallery display, full-image viewing, downloads, and deletion.
+- `ui/tabs/favorites_page.py` - persisted favorite-image browsing and add/remove workflows.
+- `ui/tabs/hidden_page.py` - hidden-vault authentication, hiding/restoring images, and hidden-image viewing, downloads, and deletion.
+- `ui/tabs/__init__.py` - marks the tab-module directory as a Python package.
 - `ui/.streamlit/config.toml` - Streamlit theme settings.
 - `ui/requirements.txt` - Python dependencies used by the UI container.
 - `ui/Dockerfile` - builds the UI container image.

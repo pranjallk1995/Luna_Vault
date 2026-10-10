@@ -22,6 +22,7 @@ class OllamaVisionAnalyzer:
     """Generate searchable image metadata with a local Ollama vision model."""
 
     def __init__(self, config: AppConfig) -> None:
+        """Initialize this component and its required dependencies."""
         self.base_url = config.ollama_url
         self.model = config.vision_model
         self.max_tags = config.max_tags

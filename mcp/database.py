@@ -17,10 +17,13 @@ CREATE TABLE IF NOT EXISTS image_metadata (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     search_vector tsvector NOT NULL,
-    hidden boolean NOT NULL DEFAULT false
+    hidden boolean NOT NULL DEFAULT false,
+    favorite boolean NOT NULL DEFAULT false
 );
 ALTER TABLE image_metadata
     ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false;
+ALTER TABLE image_metadata
+    ADD COLUMN IF NOT EXISTS favorite boolean NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS image_metadata_search_idx
     ON image_metadata USING gin (search_vector);
 CREATE INDEX IF NOT EXISTS image_metadata_tags_idx
@@ -29,6 +32,8 @@ CREATE INDEX IF NOT EXISTS image_metadata_sha_idx
     ON image_metadata (content_sha256);
 CREATE INDEX IF NOT EXISTS image_metadata_hidden_idx
     ON image_metadata (hidden, updated_at DESC);
+CREATE INDEX IF NOT EXISTS image_metadata_favorite_idx
+    ON image_metadata (favorite, hidden, updated_at DESC);
 CREATE TABLE IF NOT EXISTS vault_security (
     singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
     password_salt bytea NOT NULL,
@@ -45,14 +50,16 @@ class MetadataRepository:
     """Persist image metadata, hidden state, credentials, and search indexes."""
 
     def __init__(self, config: AppConfig) -> None:
+        """Initialize this component and its required dependencies."""
         self.database_url = config.database_url
 
     @staticmethod
     def _row_to_metadata(row: tuple[Any, ...]) -> dict[str, Any]:
+        """Convert a database row into the public metadata representation."""
         return {
             "name": row[0], "size_bytes": row[1], "content_sha256": row[2],
             "caption": row[3], "tags": row[4], "analysis_model": row[5],
-            "updated_at": row[6].isoformat(), "hidden": row[7],
+            "updated_at": row[6].isoformat(), "hidden": row[7], "favorite": row[8],
         }
 
     def initialize(self) -> None:
@@ -80,7 +87,7 @@ class MetadataRepository:
                     search_vector = EXCLUDED.search_vector,
                     updated_at = now()
                 RETURNING name, size_bytes, content_sha256, caption, tags,
-                          analysis_model, updated_at, hidden
+                          analysis_model, updated_at, hidden, favorite
                 """,
                 (name, size_bytes, content_sha256, caption, tags, analysis_model,
                  caption, " ".join(tags)),
@@ -88,6 +95,7 @@ class MetadataRepository:
         return self._row_to_metadata(row)
 
     def delete(self, name: str) -> None:
+        """Delete one metadata record by filename."""
         with psycopg.connect(self.database_url) as connection:
             connection.execute("DELETE FROM image_metadata WHERE name = %s", (name,))
 
@@ -106,7 +114,7 @@ class MetadataRepository:
                        updated_at = now()
                    WHERE name = %s AND hidden = false
                    RETURNING name, size_bytes, content_sha256, caption, tags,
-                             analysis_model, updated_at, hidden""",
+                             analysis_model, updated_at, hidden, favorite""",
                 (caption, tags, caption, " ".join(tags), name),
             ).fetchone()
         if row is None:
@@ -120,7 +128,7 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             rows = connection.execute(
                 f"""SELECT name, size_bytes, content_sha256, caption, tags,
-                           analysis_model, updated_at, hidden
+                           analysis_model, updated_at, hidden, favorite
                     FROM image_metadata {where}
                     ORDER BY updated_at DESC, name""",
                 parameters,
@@ -128,6 +136,7 @@ class MetadataRepository:
         return [self._row_to_metadata(row) for row in rows]
 
     def is_hidden(self, name: str) -> bool:
+        """Return whether the named image belongs to the Hidden Vault."""
         with psycopg.connect(self.database_url) as connection:
             row = connection.execute(
                 "SELECT hidden FROM image_metadata WHERE name = %s", (name,)
@@ -137,6 +146,7 @@ class MetadataRepository:
         return bool(row[0])
 
     def set_hidden(self, names: list[str], hidden: bool) -> list[str]:
+        """Persist hidden state for the supplied image names."""
         if not names:
             return []
         with psycopg.connect(self.database_url) as connection:
@@ -147,7 +157,33 @@ class MetadataRepository:
             ).fetchall()
         return [row[0] for row in rows]
 
+    def list_favorites(self) -> list[dict[str, Any]]:
+        """List visible favorite images newest first."""
+        with psycopg.connect(self.database_url) as connection:
+            rows = connection.execute(
+                """SELECT name, size_bytes, content_sha256, caption, tags,
+                          analysis_model, updated_at, hidden, favorite
+                   FROM image_metadata
+                   WHERE favorite = true AND hidden = false
+                   ORDER BY updated_at DESC, name"""
+            ).fetchall()
+        return [self._row_to_metadata(row) for row in rows]
+
+    def set_favorite(self, names: list[str], favorite: bool) -> list[str]:
+        """Set favorite state for visible images."""
+        if not names:
+            return []
+        with psycopg.connect(self.database_url) as connection:
+            rows = connection.execute(
+                """UPDATE image_metadata SET favorite = %s, updated_at = now()
+                   WHERE name = ANY(%s) AND hidden = false AND favorite <> %s
+                   RETURNING name""",
+                (favorite, names, favorite),
+            ).fetchall()
+        return [row[0] for row in rows]
+
     def security_credentials(self) -> tuple[bytes, bytes, bytes, bytes, int] | None:
+        """Return the stored Hidden Vault credential material, when configured."""
         with psycopg.connect(self.database_url) as connection:
             row = connection.execute(
                 """SELECT password_salt, password_hash, reset_pin_salt,
@@ -159,6 +195,7 @@ class MetadataRepository:
     def create_security_credentials(self, password_salt: bytes, password_hash: bytes,
                                     pin_salt: bytes, pin_hash: bytes,
                                     iterations: int) -> bool:
+        """Persist Hidden Vault credentials only when none exist."""
         with psycopg.connect(self.database_url) as connection:
             row = connection.execute(
                 """INSERT INTO vault_security
@@ -172,6 +209,7 @@ class MetadataRepository:
 
     def update_password(self, password_salt: bytes, password_hash: bytes,
                         iterations: int) -> None:
+        """Replace the stored password-derived credential material."""
         with psycopg.connect(self.database_url) as connection:
             connection.execute(
                 """UPDATE vault_security SET password_salt = %s,
