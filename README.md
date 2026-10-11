@@ -143,6 +143,9 @@ rebuild that service. Python caches, test caches, and MCP tests are ignored by t
 runtime watcher. Named image, database, and Ollama volumes are never watched or
 synchronized.
 
+Compose Watch is a foreground process and must remain running for source sync.
+If it exits or its terminal closes, restart it with `docker compose watch`.
+
 If the stack is already running, attach the watcher with `docker compose watch`.
 An already-open Codex task may still need to be reopened after an MCP tool-schema
 change so the client refreshes its discovered tool catalog.
