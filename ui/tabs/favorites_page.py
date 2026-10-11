@@ -157,7 +157,7 @@ class FavoritesPage(SelectableGallery):
         ]
 
         favorites_tab, add_tab = st.tabs(
-            [":material/star: Favorites", ":material/add: Add images"]
+            [":material/star: Favorite Images", ":material/add: Add images"]
         )
         with favorites_tab:
             query = self.render_collection_search(

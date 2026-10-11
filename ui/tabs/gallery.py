@@ -104,6 +104,10 @@ class SelectableGallery(LunaVaultUI):
             images, page_key, f"{key_prefix}_{generation}"
         )
         self.render_gallery_transition_marker(page_key)
+        if self.gallery_transition_phase(page_key) == "out":
+            self.finish_gallery_transition(page_key)
+            return True
+
         self.render_selection_grid(
             page_images,
             page,

@@ -29,7 +29,7 @@ def main() -> None:
         [
             ":material/upload: Upload Images",
             ":material/visibility: View Images",
-            ":material/star: Favorites",
+            ":material/star: Favorite Images",
             ":material/lock: Hidden Images",
         ]
     )

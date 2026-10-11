@@ -48,6 +48,10 @@ class ViewPage(LunaVaultUI):
         )
         clicked_image = None
         self.render_gallery_transition_marker("view_page")
+        if self.gallery_transition_phase("view_page") == "out":
+            self.finish_gallery_transition("view_page")
+            return
+
 
         for row_start in range(0, len(page_images), self.config.gallery_columns):
             row_images = page_images[
