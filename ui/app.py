@@ -1,5 +1,8 @@
 """Luna Vault Streamlit application entry point."""
 
+import hashlib
+from pathlib import Path
+
 import httpx
 import streamlit as st
 
@@ -12,6 +15,29 @@ from tabs.upload_page import UploadPage
 from tabs.view_page import ViewImagesPage
 
 
+def source_revision() -> str:
+    """Return a stable digest of the UI source currently loaded by Streamlit."""
+    source_root = Path(__file__).resolve().parent
+    source_files = sorted(source_root.rglob("*.py"))
+    source_files.append(source_root / ".streamlit" / "config.toml")
+    digest = hashlib.sha256()
+    for source_file in source_files:
+        if not source_file.is_file():
+            continue
+        digest.update(source_file.relative_to(source_root).as_posix().encode())
+        digest.update(source_file.read_bytes())
+    return digest.hexdigest()
+
+
+def show_reload_notice() -> None:
+    """Notify an existing session only when its loaded UI source has changed."""
+    revision = source_revision()
+    previous_revision = st.session_state.get("ui_source_revision")
+    st.session_state.ui_source_revision = revision
+    if previous_revision is not None and previous_revision != revision:
+        st.toast("Luna Vault updated", icon=":material/refresh:")
+
+
 def main() -> None:
     """Configure Streamlit and render the active Luna Vault page."""
     st.set_page_config(
@@ -22,6 +48,7 @@ def main() -> None:
     )
     config = UIConfig.from_env()
     LunaVaultUI(config).initialize_state()
+    show_reload_notice()
     apply_app_styles()
     render_app_header()
 

@@ -12,3 +12,4 @@ secondaryBackgroundColor = "#171F35"
 
 [server]
 headless = true
+runOnSave = true
