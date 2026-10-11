@@ -50,6 +50,7 @@ class LunaVaultUI:
             "view_generation": 0,
             "view_page": 0,
             "pending_view_delete": None,
+            "view_delete_notice": None,
             "download_generation": 0,
             "download_page": 0,
             "download_selection": set(),
@@ -165,12 +166,14 @@ class LunaVaultUI:
 
     @staticmethod
     def finish_gallery_transition(state_key: str) -> None:
-        """Advance an exit animation to the target page, then clear entry state."""
+        """Finish exit plus a short gap, then rerun the target page for entry."""
         transition = st.session_state.gallery_transitions.get(state_key)
         if not transition:
             return
         if transition["phase"] == "out":
-            time.sleep(0.16)
+            # Deltas for the old grid are already emitted. Keep it mounted through
+            # the 160 ms exit and a brief 50 ms pause before swapping page state.
+            time.sleep(0.21)
             st.session_state[state_key] = transition["target"]
             transition["phase"] = "in"
             st.rerun()
@@ -183,11 +186,12 @@ class LunaVaultUI:
         current_page = min(max(st.session_state[state_key], 0), page_count - 1)
         st.session_state[state_key] = current_page
         selector_key = f"{key_prefix}_page"
+        exiting = self.gallery_transition_phase(state_key) == "out"
 
         previous_column, page_column, next_column = st.columns([1, 2, 1])
         previous_column.button(
             ":material/arrow_back:",
-            disabled=current_page == 0,
+            disabled=exiting or current_page == 0,
             width="stretch",
             key=f"{key_prefix}_previous",
             on_click=self.change_gallery_page,
@@ -200,6 +204,7 @@ class LunaVaultUI:
             options=list(range(1, page_count + 1)),
             index=current_page,
             label_visibility="collapsed",
+            disabled=exiting,
             key=selector_key,
             on_change=self.sync_gallery_page,
             args=(state_key, selector_key),
@@ -207,7 +212,7 @@ class LunaVaultUI:
 
         next_column.button(
             ":material/arrow_forward:",
-            disabled=current_page == page_count - 1,
+            disabled=exiting or current_page == page_count - 1,
             width="stretch",
             key=f"{key_prefix}_next",
             on_click=self.change_gallery_page,

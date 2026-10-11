@@ -26,6 +26,10 @@ class ViewPage(LunaVaultUI):
                 retained_uploads.append(image)
         st.session_state.uploaded_images = retained_uploads
         st.session_state.pending_view_delete = None
+        st.session_state.view_delete_notice = (
+            "success",
+            f"Deleted {self.display_name(image_path.name)}.",
+        )
         st.session_state.view_generation += 1
         st.session_state.download_generation += 1
 
@@ -33,6 +37,12 @@ class ViewPage(LunaVaultUI):
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         """Render the view page interface."""
+        notice = st.session_state.view_delete_notice
+        if notice:
+            st.session_state.view_delete_notice = None
+            level, message = notice
+            getattr(st, level)(message)
+
         if not vault_images:
             st.session_state.view_page = 0
             st.session_state.pending_view_delete = None
@@ -48,11 +58,6 @@ class ViewPage(LunaVaultUI):
         )
         clicked_image = None
         self.render_gallery_transition_marker("view_page")
-        if self.gallery_transition_phase("view_page") == "out":
-            self.finish_gallery_transition("view_page")
-            return
-
-
         for row_start in range(0, len(page_images), self.config.gallery_columns):
             row_images = page_images[
                 row_start : row_start + self.config.gallery_columns
@@ -107,23 +112,31 @@ class ViewPage(LunaVaultUI):
 
         pending_name = st.session_state.pending_view_delete
         if pending_name:
-            st.warning(
-                f"Delete {self.display_name(pending_name)}? This cannot be undone."
-            )
-            confirm_column, cancel_column = st.columns(2)
-            if confirm_column.button(
-                "Confirm deletion",
-                type="primary",
-                width="stretch",
-                key="confirm_view_delete",
-            ):
-                self.delete_image(self.image_dir / pending_name)
-                st.rerun()
-            if cancel_column.button(
-                "Cancel", width="stretch", key="cancel_view_delete"
-            ):
-                st.session_state.pending_view_delete = None
-                st.rerun()
+
+            @st.dialog("Delete image?", width="small")
+            def confirm_view_deletion(name: str = pending_name) -> None:
+                """Confirm destructive deletion in an immediately visible dialog."""
+                st.write(f"Permanently delete **{self.display_name(name)}**? ")
+                cancel_column, delete_column = st.columns(2)
+                if cancel_column.button(
+                    "Cancel", width="stretch", key="cancel_view_delete"
+                ):
+                    st.session_state.pending_view_delete = None
+                    st.rerun()
+                if delete_column.button(
+                    "Delete",
+                    icon=":material/delete:",
+                    type="primary",
+                    width="stretch",
+                    key="confirm_view_delete",
+                ):
+                    try:
+                        self.delete_image(self.image_dir / name)
+                        st.rerun()
+                    except httpx.HTTPError as error:
+                        st.error(f"Could not delete the image: {error}")
+
+            confirm_view_deletion()
 
         if clicked_image is not None:
             st.session_state.view_generation += 1

@@ -64,8 +64,15 @@ def apply_app_styles() -> None:
         .lv-gallery-transition { display:none; }
         @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }
         @keyframes lv-gallery-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        div[data-testid="stElementContainer"]:has(.lv-gallery-out) ~ * { animation:lv-gallery-out 160ms ease-in forwards; }
-        div[data-testid="stElementContainer"]:has(.lv-gallery-in) ~ * { animation:lv-gallery-in 180ms ease-out both; }
+        div[data-testid="stElementContainer"]:has(.lv-gallery-out) ~ * {
+            animation:lv-gallery-out 160ms ease-in forwards;
+            pointer-events:none;
+            will-change:opacity,transform;
+        }
+        div[data-testid="stElementContainer"]:has(.lv-gallery-in) ~ * {
+            animation:lv-gallery-in 180ms ease-out both;
+            will-change:opacity,transform;
+        }
         @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
         @media (max-width:700px) { .block-container { padding:.85rem .8rem 2rem; } .lv-subtitle { display:none; } div[data-testid="stTabs"] [data-baseweb="tab"] { padding:0 .55rem; } }
         </style>

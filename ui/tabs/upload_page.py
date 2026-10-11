@@ -26,7 +26,7 @@ class UploadPage(LunaVaultUI):
         if not pending:
             return
 
-        progress = st.progress(0.0, text="Preparing upload...")
+        progress = st.progress(0.0, text="Preparing images for upload...")
         total_bytes = sum(len(content) for _, _, content in pending)
         written_bytes = 0
 
@@ -36,7 +36,10 @@ class UploadPage(LunaVaultUI):
                 stored_name = f"{uuid4().hex}_{safe_name}"
                 progress.progress(
                     written_bytes / total_bytes if total_bytes else 0.0,
-                    text=f"Analyzing {safe_name}",
+                    text=(
+                        f"Analyzing {safe_name} with the local vision model. "
+                        "The first request may include model initialization."
+                    ),
                 )
                 try:
                     response = httpx.post(
@@ -58,7 +61,7 @@ class UploadPage(LunaVaultUI):
                 written_bytes += len(content)
                 progress.progress(
                     written_bytes / total_bytes if total_bytes else 1.0,
-                    text=f"Saved {safe_name}",
+                    text=f"Analysis and upload complete for {safe_name}",
                 )
                 st.session_state.saved_uploads.add(upload_id)
                 st.session_state.uploaded_images.append(
