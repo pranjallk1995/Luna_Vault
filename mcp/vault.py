@@ -152,6 +152,26 @@ class ImageVaultService:
         """Remove one visible image and its metadata."""
         return self._remove_path(name, self.visible_path(name))
 
+    def rename(self, name: str, new_name: str) -> dict[str, Any]:
+        """Rename a visible image and roll its file back if metadata update fails."""
+        source = self.visible_path(name)
+        destination = self.safe_path(new_name)
+        if source == destination:
+            raise ValueError("The new image name must be different from the current name.")
+        if source.suffix.lower() != destination.suffix.lower():
+            raise ValueError("Renaming cannot change the image file extension.")
+        if destination.exists():
+            raise FileExistsError(f"Image {new_name!r} already exists.")
+
+        source.rename(destination)
+        try:
+            metadata = self.repository.rename(name, new_name)
+        except Exception:
+            # Keep the file and its primary-key metadata aligned on database failure.
+            destination.rename(source)
+            raise
+        return {"status": "renamed", "old_name": name, **metadata}
+
     def remove_hidden(self, name: str) -> dict[str, str]:
         """Remove one authenticated hidden image and its metadata."""
         path = self.safe_path(name)

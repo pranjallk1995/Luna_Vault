@@ -42,6 +42,17 @@ class FakeRepository:
         """Delete one metadata record by filename."""
         self.rows.pop(name, None)
 
+    def rename(self, name, new_name):
+        """Rename one visible record while preserving its metadata."""
+        if new_name in self.rows:
+            raise FileExistsError(new_name)
+        row = self.rows.get(name)
+        if row is None or row.get("hidden", False):
+            raise FileNotFoundError(name)
+        row = {**self.rows.pop(name), "name": new_name}
+        self.rows[new_name] = row
+        return row
+
     def update_metadata(self, name, caption, tags):
         """Update caption and tags in the test repository."""
         if name not in self.rows or self.rows[name].get("hidden", False):
@@ -178,6 +189,67 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.service.remove("cat.png")
         self.assertFalse((Path(self.temp.name) / "cat.png").exists())
         self.assertNotIn("cat.png", self.repository.rows)
+
+    def test_rename_preserves_file_and_metadata(self):
+        """Verify rename moves the file and preserves generated metadata."""
+        original = self.service.ingest_base64("cat.png", png_payload())
+        self.service.set_favorite(["cat.png"], True)
+        result = self.service.rename("cat.png", "favorite cat.png")
+        self.assertEqual(result["status"], "renamed")
+        self.assertEqual(result["old_name"], "cat.png")
+        self.assertEqual(result["name"], "favorite cat.png")
+        self.assertEqual(result["caption"], original["caption"])
+        self.assertEqual(result["tags"], original["tags"])
+        self.assertTrue(result["favorite"])
+        self.assertFalse((Path(self.temp.name) / "cat.png").exists())
+        self.assertTrue((Path(self.temp.name) / "favorite cat.png").is_file())
+
+    def test_rename_rejects_collision_without_changing_source(self):
+        """Verify rename never overwrites an existing vault image."""
+        self.service.ingest_base64("cat.png", png_payload())
+        self.service.ingest_base64("dog.png", png_payload("blue"))
+        with self.assertRaises(FileExistsError):
+            self.service.rename("cat.png", "dog.png")
+        self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+        self.assertIn("cat.png", self.repository.rows)
+
+    def test_rename_rejects_extension_change(self):
+        """Verify rename cannot make the filename disagree with image bytes."""
+        self.service.ingest_base64("cat.png", png_payload())
+        with self.assertRaises(ValueError):
+            self.service.rename("cat.png", "cat.jpg")
+        self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+
+    def test_rename_rejects_unsafe_destination_name(self):
+        """Verify rename rejects paths that could escape the vault directory."""
+        self.service.ingest_base64("cat.png", png_payload())
+        with self.assertRaises(ValueError):
+            self.service.rename("cat.png", "../cat.png")
+        self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+
+    def test_rename_rejects_hidden_image(self):
+        """Verify the visible rename operation cannot expose a hidden image."""
+        self.service.ingest_base64("cat.png", png_payload())
+        self.service.set_hidden(["cat.png"], True)
+        with self.assertRaises(PermissionError):
+            self.service.rename("cat.png", "renamed.png")
+        self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+
+    def test_rename_rolls_file_back_when_metadata_update_fails(self):
+        """Verify a repository failure cannot leave a half-renamed file."""
+        self.service.ingest_base64("cat.png", png_payload())
+        original_rename = self.repository.rename
+        self.repository.rename = lambda name, new_name: (_ for _ in ()).throw(
+            RuntimeError("database unavailable")
+        )
+        try:
+            with self.assertRaises(RuntimeError):
+                self.service.rename("cat.png", "renamed.png")
+        finally:
+            self.repository.rename = original_rename
+        self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+        self.assertFalse((Path(self.temp.name) / "renamed.png").exists())
+        self.assertIn("cat.png", self.repository.rows)
 
     def test_natural_count_query_uses_metadata(self):
         """Verify natural count query uses metadata."""

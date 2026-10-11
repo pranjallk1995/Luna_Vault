@@ -64,6 +64,11 @@ class LunaVaultMCP:
             }
 
         @self.mcp.tool()
+        def rename_image(name: str, new_name: str) -> dict[str, Any]:
+            """Rename a visible image file and its persisted metadata identifier."""
+            return vault.rename(name, new_name)
+
+        @self.mcp.tool()
         def remove_image(name: str) -> dict[str, str]:
             """Remove a non-hidden image and its persisted metadata consistently."""
             return vault.remove(name)
@@ -125,6 +130,19 @@ class LunaVaultMCP:
             """Delete one visible image requested by the UI."""
             try:
                 return JSONResponse(vault.remove(request.path_params["name"]))
+            except Exception as error:
+                return self._error(error)
+
+        @self.mcp.custom_route("/api/images/{name}/rename", methods=["POST"])
+        async def rename_route(request: Request) -> JSONResponse:
+            """Rename one visible image requested by the UI."""
+            try:
+                payload = await self._payload(request)
+                return JSONResponse(
+                    vault.rename(
+                        request.path_params["name"], payload.get("new_name", "")
+                    )
+                )
             except Exception as error:
                 return self._error(error)
 

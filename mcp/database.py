@@ -99,6 +99,24 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             connection.execute("DELETE FROM image_metadata WHERE name = %s", (name,))
 
+    def rename(self, name: str, new_name: str) -> dict[str, Any]:
+        """Rename one visible metadata record while preserving all other fields."""
+        try:
+            with psycopg.connect(self.database_url) as connection:
+                row = connection.execute(
+                    """UPDATE image_metadata
+                       SET name = %s, updated_at = now()
+                       WHERE name = %s AND hidden = false
+                       RETURNING name, size_bytes, content_sha256, caption, tags,
+                                 analysis_model, updated_at, hidden, favorite""",
+                    (new_name, name),
+                ).fetchone()
+        except psycopg.errors.UniqueViolation as error:
+            raise FileExistsError(f"Image {new_name!r} already exists.") from error
+        if row is None:
+            raise FileNotFoundError(f"Visible image {name!r} was not found.")
+        return self._row_to_metadata(row)
+
     def update_metadata(
         self, name: str, caption: str, tags: list[str]
     ) -> dict[str, Any]:
