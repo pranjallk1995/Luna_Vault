@@ -100,6 +100,7 @@ Luna Vault exposes these tools to connected MCP clients:
 - `add_image` - add an image and generate metadata.
 - `modify_image` - replace a visible image and refresh its metadata.
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
+- `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.
 - `remove_image` - delete a visible image and its metadata.
 - `search_images` - search captions and tags without opening original images.
 - `backfill_metadata` - generate missing or stale metadata for imported files.
@@ -127,11 +128,24 @@ Run or resume an idempotent metadata backfill through the MCP `backfill_metadata
 
 ## Development
 
-The UI source is bind-mounted at `/workspace/ui` and Streamlit reloads on edits. The MCP source is bind-mounted at `/workspace/mcp`; restart MCP after editing:
+Use Docker Compose Watch to keep the running development stack aligned with local
+source changes:
 
 ```sh
-docker compose restart mcp
+docker compose up --build --watch
 ```
+
+UI source changes are synchronized into `/workspace/ui`, where Streamlit reloads
+them automatically. MCP source changes are synchronized into `/workspace/mcp`
+and restart only the MCP service so newly registered tools become available from
+the server. Changes to either service's `requirements.txt` or `Dockerfile`
+rebuild that service. Python caches, test caches, and MCP tests are ignored by the
+runtime watcher. Named image, database, and Ollama volumes are never watched or
+synchronized.
+
+If the stack is already running, attach the watcher with `docker compose watch`.
+An already-open Codex task may still need to be reopened after an MCP tool-schema
+change so the client refreshes its discovered tool catalog.
 
 
 ### UI modules
