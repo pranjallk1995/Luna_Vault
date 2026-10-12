@@ -150,6 +150,71 @@ If the stack is already running, attach the watcher with `docker compose watch`.
 An already-open Codex task may still need to be reopened after an MCP tool-schema
 change so the client refreshes its discovered tool catalog.
 
+### Add Luna Vault as a plugin with a Cloudflare Quick Tunnel
+
+For development, a Cloudflare Quick Tunnel can expose the local MCP service to
+ChatGPT over a temporary public HTTPS URL. Run these commands inside WSL.
+
+Install `cloudflared` from Cloudflare's Debian/Ubuntu package repository:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y curl
+sudo mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+  | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' \
+  | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt-get update
+sudo apt-get install -y cloudflared
+cloudflared --version
+```
+
+Start Luna Vault in one WSL terminal:
+
+```sh
+cd ~/Luna_Vault
+docker compose up --build --watch
+```
+
+After the MCP service is healthy, open a second WSL terminal and create the
+tunnel to the host-bound MCP port:
+
+```sh
+cloudflared tunnel --url http://localhost:18000
+```
+
+`cloudflared` prints a URL similar to
+`https://example-words.trycloudflare.com`. Keep that terminal running and form
+the complete MCP endpoint by appending `/mcp`:
+
+```text
+https://example-words.trycloudflare.com/mcp
+```
+
+In ChatGPT, open **Plugins**, select **+**, and choose **Add custom MCP server**.
+Use these settings:
+
+- Name: `Luna Vault`
+- Server URL: the generated `https://...trycloudflare.com/mcp` URL
+- Authentication: **No authentication**
+
+Accept the risk confirmation, choose **Create as a plugin**, install the new
+personal plugin, then select it with `@Luna Vault` in a new Work chat. Use the
+full `/mcp` endpoint; the tunnel's root URL is not the MCP endpoint.
+
+Quick Tunnels are intended only for testing and development. The hostname
+changes whenever a new tunnel is created, has no uptime guarantee, and stops
+working when `cloudflared` exits. Luna Vault currently exposes this MCP endpoint
+without authentication, so anyone who obtains the tunnel URL can call its tools,
+including tools that modify or delete images. Keep the URL private and stop the
+tunnel when testing is complete. Use a stable deployment with MCP-compatible
+OAuth before exposing Luna Vault beyond personal development.
+
+References: [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/),
+[Cloudflare Linux downloads](https://developers.cloudflare.com/tunnel/downloads/),
+and the [OpenAI plugin quickstart](https://developers.openai.com/plugins/quickstart).
+
 
 ### UI modules
 
