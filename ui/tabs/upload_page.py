@@ -1,6 +1,8 @@
 """Upload page for Luna Vault."""
 
 import base64
+import time
+from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
@@ -13,6 +15,49 @@ from tabs.shared import LunaVaultUI
 
 class UploadPage(LunaVaultUI):
     """Render uploads and persist AI-generated metadata results."""
+
+    @staticmethod
+    def _post_with_progress(
+        api_url: str,
+        stored_name: str,
+        display_name: str,
+        content,
+        progress,
+        progress_value: float,
+    ) -> httpx.Response:
+        """Keep progress feedback alive during the blocking vision request."""
+        payload = {
+            "name": stored_name,
+            "content_base64": base64.b64encode(content).decode("ascii"),
+        }
+        started_at = time.monotonic()
+        tick = 0
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            request = executor.submit(
+                httpx.post,
+                f"{api_url}/api/images",
+                json=payload,
+                timeout=360.0,
+            )
+            while not request.done():
+                elapsed = int(time.monotonic() - started_at)
+                dots = "." * ((tick % 3) + 1)
+                progress.progress(
+                    progress_value,
+                    text=(
+                        f"Analyzing {display_name} with the local vision model. "
+                        f"Still working: {elapsed}s elapsed. The first request can "
+                        f"take longer while the model becomes ready{dots}"
+                    ),
+                )
+                tick += 1
+                time.sleep(0.5)
+
+            response = request.result()
+
+        response.raise_for_status()
+        return response
 
     def upload_images(self, uploads: list) -> None:
         """Upload new files and retain the metadata returned by ingestion."""
@@ -42,17 +87,19 @@ class UploadPage(LunaVaultUI):
                     ),
                 )
                 try:
-                    response = httpx.post(
-                        f"{self.config.api_url}/api/images",
-                        json={
-                            "name": stored_name,
-                            "content_base64": base64.b64encode(content).decode("ascii"),
-                        },
-                        timeout=360.0,
+                    response = self._post_with_progress(
+                        self.config.api_url,
+                        stored_name,
+                        safe_name,
+                        content,
+                        progress,
+                        written_bytes / total_bytes if total_bytes else 0.0,
                     )
-                    response.raise_for_status()
                 except httpx.HTTPError as error:
-                    st.session_state.setdefault("failed_uploads", {})[upload_id] = {"name": safe_name, "content": bytes(content)}
+                    st.session_state.setdefault("failed_uploads", {})[upload_id] = {
+                        "name": safe_name,
+                        "content": bytes(content),
+                    }
                     st.error(f"Could not upload {safe_name}: {error}")
                     written_bytes += len(content)
                     continue
@@ -73,20 +120,26 @@ class UploadPage(LunaVaultUI):
     def retry_upload(self, upload_id: str) -> None:
         """Retry one previously failed upload."""
         failed = st.session_state.failed_uploads[upload_id]
-        response = httpx.post(
-            f"{self.config.api_url}/api/images",
-            json={
-                "name": f"{uuid4().hex}_{failed['name']}",
-                "content_base64": base64.b64encode(failed["content"]).decode("ascii"),
-            },
-            timeout=360.0,
-        )
-        response.raise_for_status()
-        st.session_state.saved_uploads.add(upload_id)
-        st.session_state.uploaded_images.append(
-            {"upload_id": upload_id, **response.json()}
-        )
-        del st.session_state.failed_uploads[upload_id]
+        stored_name = f"{uuid4().hex}_{failed['name']}"
+        progress = st.progress(0.0, text="Preparing image for analysis...")
+        try:
+            response = self._post_with_progress(
+                self.config.api_url,
+                stored_name,
+                failed["name"],
+                failed["content"],
+                progress,
+                0.0,
+            )
+            progress.progress(1.0, text=f"Analysis complete for {failed['name']}.")
+            st.session_state.saved_uploads.add(upload_id)
+            st.session_state.uploaded_images.append(
+                {"upload_id": upload_id, **response.json()}
+            )
+            del st.session_state.failed_uploads[upload_id]
+        finally:
+            progress.empty()
+
     @staticmethod
     def clear_ui_state() -> None:
         """Reset upload results and recreate the uploader widget."""
