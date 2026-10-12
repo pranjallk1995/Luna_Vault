@@ -6,6 +6,7 @@ import httpx
 import streamlit as st
 from tabs.gallery import SelectableGallery
 
+
 class HiddenPage(SelectableGallery):
     """Render authenticated hidden-image management workflows."""
 
@@ -45,21 +46,31 @@ class HiddenPage(SelectableGallery):
             st.session_state.pending_hidden_delete = image_path.name
 
     def _post(self, route: str, payload: dict, authenticated: bool = False) -> dict:
-        """Post JSON to a Hidden Vault endpoint with optional authentication."""
-        headers = {}
+        headers = self.config.api_headers.copy()
+
         if authenticated:
-            headers["Authorization"] = f"Bearer {st.session_state.hidden_auth_token}"
+            headers["X-Hidden-Vault-Token"] = st.session_state.hidden_auth_token
+
         response = httpx.post(
-            f"{self.config.api_url}{route}", json=payload, headers=headers, timeout=30.0
+            f"{self.config.api_url}{route}",
+            json=payload,
+            headers=headers,
+            timeout=30.0,
         )
-        if response.status_code == 401:
+
+        if response.status_code == 401 and authenticated:
             st.session_state.hidden_auth_token = None
+
         response.raise_for_status()
         return response.json()
 
     def _authenticate(self) -> bool:
         """Render setup or login controls and report whether the vault is unlocked."""
-        status = httpx.get(f"{self.config.api_url}/api/hidden/status", timeout=10.0)
+        status = httpx.get(
+            f"{self.config.api_url}/api/hidden/status",
+            headers=self.config.api_headers,
+            timeout=10.0,
+        )
         status.raise_for_status()
         configured = status.json()["configured"]
         if st.session_state.hidden_auth_token:
@@ -224,7 +235,8 @@ class HiddenPage(SelectableGallery):
             response = httpx.get(
                 f"{self.config.api_url}/api/hidden/images",
                 headers={
-                    "Authorization": f"Bearer {st.session_state.hidden_auth_token}"
+                    **self.config.api_headers,
+                    "X-Hidden-Vault-Token": st.session_state.hidden_auth_token,
                 },
                 timeout=10.0,
             )
@@ -254,7 +266,11 @@ class HiddenPage(SelectableGallery):
             ]
             self._render_collection(
                 filtered_hidden,
-                "No hidden images match this search." if query else "No images are hidden.",
+                (
+                    "No hidden images match this search."
+                    if query
+                    else "No images are hidden."
+                ),
                 "hidden_page",
                 "hidden_selection",
                 "hidden_generation",
@@ -275,9 +291,11 @@ class HiddenPage(SelectableGallery):
             ]
             self._render_collection(
                 filtered_visible,
-                "No visible images match this search."
-                if query
-                else "No visible images are available.",
+                (
+                    "No visible images match this search."
+                    if query
+                    else "No visible images are available."
+                ),
                 "hide_page",
                 "hide_selection",
                 "hide_generation",

@@ -1,5 +1,7 @@
 """Luna Vault Streamlit application entry point."""
 
+import os
+
 import hashlib
 from pathlib import Path
 
@@ -15,11 +17,15 @@ from tabs.upload_page import UploadPage
 from tabs.view_page import ViewImagesPage
 
 
+LOGO_PATH = Path(__file__).resolve().parent / "assets" / "luna-vault-logo.png"
+
+
 def source_revision() -> str:
     """Return a stable digest of the UI source currently loaded by Streamlit."""
     source_root = Path(__file__).resolve().parent
     source_files = sorted(source_root.rglob("*.py"))
     source_files.append(source_root / ".streamlit" / "config.toml")
+    source_files.append(LOGO_PATH)
     digest = hashlib.sha256()
     for source_file in source_files:
         if not source_file.is_file():
@@ -42,7 +48,7 @@ def main() -> None:
     """Configure Streamlit and render the active Luna Vault page."""
     st.set_page_config(
         page_title="Luna Vault",
-        page_icon=":material/bedtime:",
+        page_icon=str(LOGO_PATH),
         layout="wide",
         initial_sidebar_state="collapsed",
     )
@@ -50,7 +56,7 @@ def main() -> None:
     LunaVaultUI(config).initialize_state()
     show_reload_notice()
     apply_app_styles()
-    render_app_header()
+    render_app_header(LOGO_PATH)
 
     upload_tab, view_tab, favorites_tab, hidden_tab = st.tabs(
         [
@@ -61,7 +67,11 @@ def main() -> None:
         ]
     )
 
-    metadata_response = httpx.get(f"{config.api_url}/api/metadata", timeout=10.0)
+    metadata_response = httpx.get(
+        f"{config.api_url}/api/metadata",
+        headers=config.api_headers,
+        timeout=10.0,
+    )
     metadata_response.raise_for_status()
     metadata = metadata_response.json()["images"]
     metadata_by_name = {item["name"]: item for item in metadata}

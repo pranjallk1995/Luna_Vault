@@ -1,5 +1,8 @@
 """Shared visual styling for the Luna Vault Streamlit application."""
 
+import base64
+from pathlib import Path
+
 import streamlit as st
 
 
@@ -14,7 +17,7 @@ def apply_app_styles() -> None:
         header[data-testid="stHeader"] { background:transparent; }
         #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
         .lv-header { display:flex; align-items:center; gap:.9rem; margin-bottom:1rem; }
-        .lv-mark { display:grid; place-items:center; width:2.65rem; height:2.65rem; border:1px solid var(--lv-strong); border-radius:.85rem; background:linear-gradient(145deg,rgba(167,139,250,.22),rgba(56,189,248,.08)); color:#ddd6fe; font-size:.82rem; font-weight:750; box-shadow:0 12px 34px rgba(0,0,0,.22); }
+        .lv-mark { display:block; width:2.65rem; height:2.65rem; border:1px solid var(--lv-strong); border-radius:.85rem; object-fit:cover; box-shadow:0 12px 34px rgba(0,0,0,.22); }
         .lv-title { margin:0; color:#f8fafc; font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
         .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
         .lv-section { margin:.9rem 0 1.15rem; }
@@ -81,12 +84,13 @@ def apply_app_styles() -> None:
     )
 
 
-def render_app_header() -> None:
+def render_app_header(logo_path: Path) -> None:
     """Render the compact branded application header."""
+    logo_base64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
     st.markdown(
-        """
+        f"""
         <div class="lv-header">
-            <div class="lv-mark">LV</div>
+            <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Vault logo">
             <div>
                 <h1 class="lv-title">Luna Vault</h1>
                 <p class="lv-subtitle">Private, AI-organized image storage</p>

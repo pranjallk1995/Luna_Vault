@@ -1,6 +1,7 @@
-"""FastMCP tools and HTTP routes for Luna Vault."""
+﻿"""FastMCP tools and HTTP routes for Luna Vault."""
 
-from pathlib import Path
+import uvicorn
+
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP, Image as MCPImage
@@ -43,12 +44,18 @@ class LunaVaultMCP:
         @self.mcp.tool()
         def add_image(name: str, content_base64: str) -> dict[str, Any]:
             """Analyze and add an image, persisting its caption and tags."""
-            return {"status": "created", **vault.ingest_base64(name, content_base64, replace=False)}
+            return {
+                "status": "created",
+                **vault.ingest_base64(name, content_base64, replace=False),
+            }
 
         @self.mcp.tool()
         def modify_image(name: str, content_base64: str) -> dict[str, Any]:
             """Analyze and atomically replace a non-hidden image and its metadata."""
-            return {"status": "modified", **vault.ingest_base64(name, content_base64, replace=True)}
+            return {
+                "status": "modified",
+                **vault.ingest_base64(name, content_base64, replace=True),
+            }
 
         @self.mcp.tool()
         def update_image_metadata(
@@ -74,9 +81,13 @@ class LunaVaultMCP:
             return vault.remove(name)
 
         @self.mcp.tool()
-        def search_images(query: str = "", tags: list[str] | None = None,
-                          match_all_tags: bool = False, limit: int = 50,
-                          offset: int = 0) -> dict[str, Any]:
+        def search_images(
+            query: str = "",
+            tags: list[str] | None = None,
+            match_all_tags: bool = False,
+            limit: int = 50,
+            offset: int = 0,
+        ) -> dict[str, Any]:
             """Search non-hidden persisted captions/tags without opening image files."""
             return vault.search(query, tags, match_all_tags, limit, offset)
 
@@ -87,9 +98,8 @@ class LunaVaultMCP:
 
     @staticmethod
     def _token(request: Request) -> str | None:
-        """Extract a bearer token from an HTTP request."""
-        header = request.headers.get("authorization", "")
-        return header[7:] if header.lower().startswith("bearer ") else None
+        """Extract the separate Hidden Vault session token."""
+        return request.headers.get("X-Hidden-Vault-Token")
 
     @staticmethod
     async def _payload(request: Request) -> dict[str, Any]:
@@ -120,7 +130,9 @@ class LunaVaultMCP:
             """Ingest an uploaded image and return its generated metadata."""
             try:
                 payload = await self._payload(request)
-                result = vault.ingest_base64(payload["name"], payload["content_base64"], replace=False)
+                result = vault.ingest_base64(
+                    payload["name"], payload["content_base64"], replace=False
+                )
                 return JSONResponse({"status": "created", **result}, status_code=201)
             except Exception as error:
                 return self._error(error)
@@ -177,7 +189,9 @@ class LunaVaultMCP:
             """Create Hidden Vault credentials and an authenticated session."""
             try:
                 payload = await self._payload(request)
-                token = auth.setup(payload.get("password", ""), str(payload.get("pin", "")))
+                token = auth.setup(
+                    payload.get("password", ""), str(payload.get("pin", ""))
+                )
                 return JSONResponse({"token": token}, status_code=201)
             except Exception as error:
                 return self._error(error)
@@ -196,7 +210,9 @@ class LunaVaultMCP:
             """Reset the Hidden Vault password using the reset PIN."""
             try:
                 payload = await self._payload(request)
-                token = auth.reset(str(payload.get("pin", "")), payload.get("new_password", ""))
+                token = auth.reset(
+                    str(payload.get("pin", "")), payload.get("new_password", "")
+                )
                 return JSONResponse({"token": token})
             except Exception as error:
                 return self._error(error)
@@ -252,7 +268,12 @@ class LunaVaultMCP:
 
     def run(self) -> None:
         """Serve Luna Vault over the streamable HTTP transport."""
-        self.mcp.run(transport="streamable-http")
+        app = self.mcp.streamable_http_app()
+        uvicorn.run(
+            app,
+            host="0.0.0.0",
+            port=8000,
+        )
 
 
 def build_server() -> LunaVaultMCP:

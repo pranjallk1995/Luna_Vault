@@ -35,3 +35,7 @@ class UIConfig:
             image_dir=Path(os.getenv("IMAGE_DIR", "/data/images")),
             api_url=api_url,
         )
+
+    @property
+    def api_headers(self) -> dict[str, str]:
+        return {}
