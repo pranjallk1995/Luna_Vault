@@ -48,6 +48,7 @@ class FavoritesPage(SelectableGallery):
             key=f"favorite_delete_{generation}_{page}_{image_path.name}",
         ):
             st.session_state.pending_favorite_delete = image_path.name
+            st.rerun()
 
     def _delete_favorite(self, name: str) -> None:
         """Delete a favorite through the normal visible-image lifecycle."""
@@ -101,11 +102,6 @@ class FavoritesPage(SelectableGallery):
         favorite: bool,
     ) -> None:
         """Render one selectable collection and its bulk action."""
-        valid_names = {path.name for path in images}
-
-        if st.session_state.pending_favorite_delete not in valid_names:
-            st.session_state.pending_favorite_delete = None
-
         rendered = self.render_selectable_collection(
             images,
             empty_message,
@@ -117,37 +113,6 @@ class FavoritesPage(SelectableGallery):
         )
 
         if not rendered:
-            return
-
-        pending_name = st.session_state.pending_favorite_delete
-
-        if not favorite and pending_name:
-            st.warning(
-                f"Delete {self.display_name(pending_name)}? This cannot be undone."
-            )
-
-            confirm_column, cancel_column = st.columns(2)
-
-            if confirm_column.button(
-                "Confirm deletion",
-                type="primary",
-                width="stretch",
-                key="confirm_favorite_delete",
-            ):
-                try:
-                    self._delete_favorite(pending_name)
-                    st.rerun()
-                except httpx.HTTPStatusError as error:
-                    st.error(error.response.json().get("error", "Deletion failed."))
-
-            if cancel_column.button(
-                "Cancel",
-                width="stretch",
-                key="cancel_favorite_delete",
-            ):
-                st.session_state.pending_favorite_delete = None
-                st.rerun()
-
             return
 
         if st.button(
@@ -164,6 +129,37 @@ class FavoritesPage(SelectableGallery):
                 st.error(
                     error.response.json().get("error", "Could not update Favorites.")
                 )
+
+    def _render_delete_confirmation(self) -> None:
+        """Confirm permanent deletion of one favorite in a modal dialog."""
+        pending_name = st.session_state.pending_favorite_delete
+        if not pending_name:
+            return
+
+        @st.dialog("Delete image?", width="small")
+        def confirm_favorite_deletion(name: str = pending_name) -> None:
+            """Render the destructive-action confirmation dialog."""
+            st.write(f"Permanently delete **{self.display_name(name)}**? ")
+            cancel_column, delete_column = st.columns(2)
+            if cancel_column.button(
+                "Cancel", width="stretch", key="cancel_favorite_delete"
+            ):
+                st.session_state.pending_favorite_delete = None
+                st.rerun()
+            if delete_column.button(
+                "Delete",
+                icon=":material/delete:",
+                type="primary",
+                width="stretch",
+                key="confirm_favorite_delete",
+            ):
+                try:
+                    self._delete_favorite(name)
+                    st.rerun()
+                except httpx.HTTPError as error:
+                    st.error(f"Could not delete the image: {error}")
+
+        confirm_favorite_deletion()
 
     def render(self, visible_images: list[Path]) -> None:
         """Render the favorites page interface."""
@@ -183,6 +179,10 @@ class FavoritesPage(SelectableGallery):
         available_images = [
             path for path in visible_images if path.name not in favorite_names
         ]
+        if st.session_state.pending_favorite_delete not in {
+            path.name for path in favorite_images
+        }:
+            st.session_state.pending_favorite_delete = None
 
         favorites_tab, add_tab = st.tabs(
             [":material/star: Favorite Images", ":material/add: Add images"]
@@ -241,3 +241,5 @@ class FavoritesPage(SelectableGallery):
                 "Add selected",
                 True,
             )
+
+        self._render_delete_confirmation()

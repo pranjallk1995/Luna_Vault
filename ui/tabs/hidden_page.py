@@ -44,6 +44,7 @@ class HiddenPage(SelectableGallery):
             key=f"hidden_delete_{generation}_{page}_{image_path.name}",
         ):
             st.session_state.pending_hidden_delete = image_path.name
+            st.rerun()
 
     def _post(self, route: str, payload: dict, authenticated: bool = False) -> dict:
         headers = self.config.api_headers.copy()
@@ -163,9 +164,6 @@ class HiddenPage(SelectableGallery):
         allow_hidden_actions: bool = False,
     ) -> None:
         """Render one selectable collection and its bulk action."""
-        valid_names = {path.name for path in images}
-        if st.session_state.pending_hidden_delete not in valid_names:
-            st.session_state.pending_hidden_delete = None
         rendered = self.render_selectable_collection(
             images,
             empty_message,
@@ -178,36 +176,7 @@ class HiddenPage(SelectableGallery):
         if not rendered:
             return
 
-        pending_name = st.session_state.pending_hidden_delete
-        if allow_hidden_actions and pending_name:
-            st.warning(
-                f"Delete {self.display_name(pending_name)}? This cannot be undone."
-            )
-            confirm_column, cancel_column = st.columns(2)
-            if confirm_column.button(
-                "Confirm deletion",
-                type="primary",
-                width="stretch",
-                key="confirm_hidden_delete",
-            ):
-                try:
-                    self._post(
-                        "/api/hidden/delete",
-                        {"names": [pending_name]},
-                        authenticated=True,
-                    )
-                    st.session_state.pending_hidden_delete = None
-                    st.session_state[selection_key].discard(pending_name)
-                    st.session_state.hidden_generation += 1
-                    st.rerun()
-                except httpx.HTTPStatusError as error:
-                    st.error(error.response.json().get("error", "Deletion failed."))
-            if cancel_column.button(
-                "Cancel", width="stretch", key="cancel_hidden_delete"
-            ):
-                st.session_state.pending_hidden_delete = None
-                st.rerun()
-        elif st.button(
+        if st.button(
             action_label,
             disabled=not st.session_state[selection_key],
             width="stretch",
@@ -217,6 +186,44 @@ class HiddenPage(SelectableGallery):
                 self._move_selected(route, selection_key)
             except httpx.HTTPStatusError as error:
                 st.error(error.response.json().get("error", "The action failed."))
+
+    def _render_delete_confirmation(self) -> None:
+        """Confirm permanent deletion of one hidden image in a modal dialog."""
+        pending_name = st.session_state.pending_hidden_delete
+        if not pending_name:
+            return
+
+        @st.dialog("Delete hidden image?", width="small")
+        def confirm_hidden_deletion(name: str = pending_name) -> None:
+            """Render the destructive-action confirmation dialog."""
+            st.write(f"Permanently delete **{self.display_name(name)}**? ")
+            cancel_column, delete_column = st.columns(2)
+            if cancel_column.button(
+                "Cancel", width="stretch", key="cancel_hidden_delete"
+            ):
+                st.session_state.pending_hidden_delete = None
+                st.rerun()
+            if delete_column.button(
+                "Delete",
+                icon=":material/delete:",
+                type="primary",
+                width="stretch",
+                key="confirm_hidden_delete",
+            ):
+                try:
+                    self._post(
+                        "/api/hidden/delete",
+                        {"names": [name]},
+                        authenticated=True,
+                    )
+                    st.session_state.pending_hidden_delete = None
+                    st.session_state.hidden_selection.discard(name)
+                    st.session_state.hidden_generation += 1
+                    st.rerun()
+                except httpx.HTTPError as error:
+                    st.error(f"Could not delete the hidden image: {error}")
+
+        confirm_hidden_deletion()
 
     def render(self, visible_images: list[Path]) -> None:
         """Render the hidden page interface."""
@@ -252,6 +259,10 @@ class HiddenPage(SelectableGallery):
         hidden_images = [
             path for path in self.list_vault_images() if path.name in hidden_names
         ]
+        if st.session_state.pending_hidden_delete not in {
+            path.name for path in hidden_images
+        }:
+            st.session_state.pending_hidden_delete = None
         hidden_tab, add_tab = st.tabs(
             [":material/lock: Hidden images", ":material/add: Add images"]
         )
@@ -303,3 +314,5 @@ class HiddenPage(SelectableGallery):
                 "Hide selected",
                 "/api/hidden/hide",
             )
+
+        self._render_delete_confirmation()
