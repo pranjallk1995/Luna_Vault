@@ -201,9 +201,9 @@ class LunaVaultMCP:
 
         @self.mcp.tool()
         def view_image(name: str) -> MCPImage:
-            """Return a non-hidden stored image as MCP image content."""
+            """Return a displayable preview of one non-hidden stored image."""
             path = vault.visible_path(name)
-            return MCPImage(path=path)
+            return _display_images([path])[0]
 
         @self.mcp.tool()
         def fetch_images(

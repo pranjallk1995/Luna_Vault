@@ -68,6 +68,14 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertEqual(result["name"], "chat.png")
         self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
 
+    def test_view_image_returns_displayable_image_data(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("view_image")
+        result = asyncio.run(tool.run({"name": "one.png"}))
+        content = result.to_image_content()
+        self.assertEqual(content.mimeType, "image/jpeg")
+        self.assertTrue(base64.b64decode(content.data))
+
     def test_upload_image_accepts_image_data_url(self) -> None:
         server = LunaVaultMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("upload_image")
