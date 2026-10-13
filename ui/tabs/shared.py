@@ -54,6 +54,14 @@ class LunaVaultUI:
             else self.config.gallery_columns
         )
 
+    def gallery_search_placeholder(self) -> str:
+        """Use a compact search hint on mobile displays."""
+        return (
+            "Filename"
+            if self.gallery_column_count() == 1
+            else "Type part of a filename"
+        )
+
     @staticmethod
     def initialize_state() -> None:
         """Initialize all Streamlit session-state values used by the application."""
@@ -206,7 +214,7 @@ class LunaVaultUI:
         selector_key = f"{key_prefix}_page"
         exiting = self.gallery_transition_phase(state_key) == "out"
 
-        previous_column, page_column, next_column = st.columns([1, 2, 1])
+        previous_column, page_column, next_column = st.columns([7, 26, 7])
         previous_column.button(
             ":material/arrow_back:",
             disabled=exiting or current_page == 0,
@@ -220,6 +228,7 @@ class LunaVaultUI:
         page_column.selectbox(
             "Page",
             options=list(range(1, page_count + 1)),
+            format_func=lambda page: f"Page {page}",
             index=current_page,
             label_visibility="collapsed",
             disabled=exiting,

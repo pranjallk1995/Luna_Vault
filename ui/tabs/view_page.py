@@ -156,11 +156,11 @@ class ViewImagesPage(LunaVaultUI):
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         """Render the view page interface."""
-        search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
+        search_column, clear_column = st.columns([33, 7], vertical_alignment="bottom")
         query = (
             search_column.text_input(
                 "Search by image name",
-                placeholder="Type part of a filename",
+                placeholder=self.gallery_search_placeholder(),
                 key="view_name_search",
                 icon=":material/search:",
             )

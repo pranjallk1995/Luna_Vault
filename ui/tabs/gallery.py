@@ -17,11 +17,11 @@ class SelectableGallery(LunaVaultUI):
 
     def render_collection_search(self, label: str, state_key: str) -> str:
         """Render a collection search field with a matching clear action."""
-        search_column, clear_column = st.columns([6, 1], vertical_alignment="bottom")
+        search_column, clear_column = st.columns([33, 7], vertical_alignment="bottom")
         query = (
             search_column.text_input(
                 label,
-                placeholder="Type part of a filename",
+                placeholder=self.gallery_search_placeholder(),
                 key=state_key,
                 icon=":material/search:",
             )

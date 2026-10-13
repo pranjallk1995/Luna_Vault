@@ -77,7 +77,14 @@ def apply_app_styles() -> None:
             will-change:opacity,transform;
         }
         @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
-        @media (max-width:700px) { .block-container { padding:.85rem .8rem 2rem; } .lv-subtitle { display:none; } div[data-testid="stTabs"] [data-baseweb="tab"] { padding:0 .55rem; } }
+        @media (max-width:700px) {
+            .block-container { padding:.85rem .8rem 2rem; }
+            .lv-subtitle { display:none; }
+            div[data-testid="stTabs"] [data-baseweb="tab-list"] { width:100%; justify-content:space-around; }
+            div[data-testid="stTabs"] [data-baseweb="tab"] { flex:1 1 0; justify-content:center; padding:0 .55rem; }
+            div[data-testid="stHorizontalBlock"] { flex-direction:row!important; flex-wrap:nowrap!important; gap:.5rem!important; }
+            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { min-width:0!important; }
+        }
         </style>
         """,
         unsafe_allow_html=True,

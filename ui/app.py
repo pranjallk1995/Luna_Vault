@@ -53,19 +53,27 @@ def main() -> None:
         initial_sidebar_state="collapsed",
     )
     config = UIConfig.from_env()
-    LunaVaultUI(config).initialize_state()
+    shared_ui = LunaVaultUI(config)
+    shared_ui.initialize_state()
     show_reload_notice()
     apply_app_styles()
     render_app_header(LOGO_PATH)
 
-    upload_tab, view_tab, favorites_tab, hidden_tab = st.tabs(
-        [
+    if shared_ui.gallery_column_count() == 1:
+        tab_labels = [
+            ":material/upload:",
+            ":material/visibility:",
+            ":material/star:",
+            ":material/lock:",
+        ]
+    else:
+        tab_labels = [
             ":material/upload: Upload Images",
             ":material/visibility: View Images",
             ":material/star: Favorite Images",
             ":material/lock: Hidden Images",
         ]
-    )
+    upload_tab, view_tab, favorites_tab, hidden_tab = st.tabs(tab_labels)
 
     metadata_response = httpx.get(
         f"{config.api_url}/api/metadata",
@@ -77,7 +85,7 @@ def main() -> None:
     metadata_by_name = {item["name"]: item for item in metadata}
     vault_images = [
         path
-        for path in LunaVaultUI(config).list_vault_images()
+        for path in shared_ui.list_vault_images()
         if path.name in metadata_by_name
     ]
 
