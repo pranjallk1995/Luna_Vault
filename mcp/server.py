@@ -1,10 +1,15 @@
-﻿"""FastMCP tools and HTTP routes for Luna Vault."""
+"""FastMCP tools and HTTP routes for Luna Vault."""
+
+import base64
+import zipfile
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Literal
 
 import uvicorn
 
-from typing import Any
-
 from mcp.server.fastmcp import FastMCP, Image as MCPImage
+from mcp.types import BlobResourceContents, EmbeddedResource
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -13,6 +18,43 @@ from database import MetadataRepository
 from security import HiddenVaultAuth
 from vault import ImageVaultService
 from vision import OllamaVisionAnalyzer
+
+
+MAX_FETCH_IMAGES = 20
+MAX_FETCH_BYTES = 50 * 1024 * 1024
+
+
+def _selected_visible_paths(
+    vault: ImageVaultService, names: list[str]
+) -> list[Path]:
+    """Resolve a bounded, deduplicated batch of visible image paths."""
+    if not isinstance(names, list) or not names:
+        raise ValueError("Provide at least one image name.")
+    if any(not isinstance(name, str) for name in names):
+        raise ValueError("Every image name must be a string.")
+    unique_names = list(dict.fromkeys(names))
+    if len(unique_names) > MAX_FETCH_IMAGES:
+        raise ValueError(f"Fetch at most {MAX_FETCH_IMAGES} images at a time.")
+    paths = [vault.visible_path(name) for name in unique_names]
+    if sum(path.stat().st_size for path in paths) > MAX_FETCH_BYTES:
+        raise ValueError("Selected images exceed the 50 MiB fetch limit.")
+    return paths
+
+
+def _zip_resource(paths: list[Path]) -> EmbeddedResource:
+    """Package selected images as an in-memory downloadable MCP resource."""
+    archive = BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        for path in paths:
+            bundle.write(path, arcname=path.name)
+    return EmbeddedResource(
+        type="resource",
+        resource=BlobResourceContents(
+            uri="file:///luna-vault/luna-vault-images.zip",
+            mimeType="application/zip",
+            blob=base64.b64encode(archive.getvalue()).decode("ascii"),
+        ),
+    )
 
 
 class LunaVaultMCP:
@@ -40,6 +82,21 @@ class LunaVaultMCP:
             """Return a non-hidden stored image as MCP image content."""
             path = vault.visible_path(name)
             return MCPImage(path=path)
+
+        @self.mcp.tool()
+        def fetch_images(
+            names: list[str], delivery: Literal["display", "zip"] = "display"
+        ):
+            """Fetch visible images for chat display or as a downloadable ZIP.
+
+            Use exact filenames returned by list_images or search_images. The display
+            mode returns native MCP image blocks; zip returns one embedded ZIP file.
+            Hidden images are never available through this public tool.
+            """
+            paths = _selected_visible_paths(vault, names)
+            if delivery == "display":
+                return [MCPImage(path=path) for path in paths]
+            return _zip_resource(paths)
 
         @self.mcp.tool()
         def add_image(name: str, content_base64: str) -> dict[str, Any]:

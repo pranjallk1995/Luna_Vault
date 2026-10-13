@@ -97,6 +97,7 @@ Luna Vault exposes these tools to connected MCP clients:
 
 - `list_images` - list visible images with captions and tags.
 - `view_image` - return a visible image.
+- `fetch_images` - display selected visible images in chat or return them as a ZIP.
 - `add_image` - add an image and generate metadata.
 - `modify_image` - replace a visible image and refresh its metadata.
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
