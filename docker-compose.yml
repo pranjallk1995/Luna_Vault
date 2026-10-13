@@ -22,7 +22,7 @@ services:
     image: adminer:latest
     restart: unless-stopped
     environment:
-      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_SERVER: luna-vault-db
     ports:
       - "127.0.0.1:19080:8080"
     networks:
@@ -55,7 +55,7 @@ services:
     image: ollama/ollama:latest
     command: ["pull", "${VISION_MODEL:-qwen2.5vl:7b}"]
     environment:
-      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_HOST: http://luna-vault-ollama:11434
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -71,9 +71,9 @@ services:
     working_dir: /workspace/mcp
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@postgres:5432/lunavault
+      DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@luna-vault-db:5432/lunavault
       IMAGE_DIR: /data/images
-      OLLAMA_URL: http://ollama:11434
+      OLLAMA_URL: http://luna-vault-ollama:11434
       VISION_MODEL: ${VISION_MODEL:-qwen2.5vl:7b}
     expose:
       - "8000"
@@ -120,8 +120,8 @@ services:
     restart: unless-stopped
     environment:
       IMAGE_DIR: /data/images
-      MCP_URL: http://mcp:8000/mcp
-      LUNAVAULT_API_URL: http://mcp:8000
+      MCP_URL: http://luna-vault-mcp:8000/mcp
+      LUNAVAULT_API_URL: http://luna-vault-mcp:8000
     ports:
       - "127.0.0.1:18501:8501"
     volumes:
