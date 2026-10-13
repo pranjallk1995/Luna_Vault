@@ -8,9 +8,17 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 
+from PIL import Image as PillowImage
+
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from server import MAX_FETCH_IMAGES, _selected_visible_paths, _zip_resource
+from server import (
+    DISPLAY_MAX_EDGE,
+    MAX_FETCH_IMAGES,
+    _display_images,
+    _selected_visible_paths,
+    _zip_resource,
+)
 
 
 class FakeVault:
@@ -35,8 +43,8 @@ class ImageDeliveryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        (self.root / "one.png").write_bytes(b"first-image")
-        (self.root / "two.jpg").write_bytes(b"second-image")
+        PillowImage.new("RGB", (1200, 800), "red").save(self.root / "one.png")
+        PillowImage.new("RGB", (640, 480), "blue").save(self.root / "two.jpg")
         self.vault = FakeVault(self.root)
 
     def tearDown(self) -> None:
@@ -59,15 +67,31 @@ class ImageDeliveryTests(unittest.TestCase):
                 self.vault, [f"image-{index}.png" for index in range(21)]
             )
 
-    def test_zip_resource_contains_selected_images(self) -> None:
+    def test_single_display_returns_one_bounded_jpeg_preview(self) -> None:
+        previews = _display_images([self.root / "one.png"])
+        self.assertEqual(len(previews), 1)
+        content = previews[0].to_image_content()
+        self.assertEqual(content.mimeType, "image/jpeg")
+        with PillowImage.open(BytesIO(base64.b64decode(content.data))) as image:
+            self.assertLessEqual(max(image.size), DISPLAY_MAX_EDGE)
+
+    def test_multiple_display_returns_one_contact_sheet(self) -> None:
+        previews = _display_images([self.root / "one.png", self.root / "two.jpg"])
+        self.assertEqual(len(previews), 1)
+        content = previews[0].to_image_content()
+        self.assertEqual(content.mimeType, "image/jpeg")
+        with PillowImage.open(BytesIO(base64.b64decode(content.data))) as image:
+            self.assertEqual(image.size, (1024, 424))
+
+    def test_zip_resource_contains_selected_originals(self) -> None:
         resource = _zip_resource(
             [self.root / "one.png", self.root / "two.jpg"]
         ).resource
         self.assertEqual(resource.mimeType, "application/zip")
         with zipfile.ZipFile(BytesIO(base64.b64decode(resource.blob))) as bundle:
             self.assertEqual(bundle.namelist(), ["one.png", "two.jpg"])
-            self.assertEqual(bundle.read("one.png"), b"first-image")
-            self.assertEqual(bundle.read("two.jpg"), b"second-image")
+            self.assertEqual(bundle.read("one.png"), (self.root / "one.png").read_bytes())
+            self.assertEqual(bundle.read("two.jpg"), (self.root / "two.jpg").read_bytes())
 
 
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ import uvicorn
 
 from mcp.server.fastmcp import FastMCP, Image as MCPImage
 from mcp.types import BlobResourceContents, EmbeddedResource
+from PIL import Image as PillowImage
+from PIL import ImageDraw, ImageOps
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -22,6 +24,7 @@ from vision import OllamaVisionAnalyzer
 
 MAX_FETCH_IMAGES = 20
 MAX_FETCH_BYTES = 50 * 1024 * 1024
+DISPLAY_MAX_EDGE = 768
 
 
 def _selected_visible_paths(
@@ -39,6 +42,54 @@ def _selected_visible_paths(
     if sum(path.stat().st_size for path in paths) > MAX_FETCH_BYTES:
         raise ValueError("Selected images exceed the 50 MiB fetch limit.")
     return paths
+
+
+def _preview_image(path: Path, max_size: tuple[int, int]) -> PillowImage.Image:
+    """Load one image with corrected orientation and a bounded RGB canvas."""
+    with PillowImage.open(path) as source:
+        image = ImageOps.exif_transpose(source)
+        image.thumbnail(max_size, PillowImage.Resampling.LANCZOS)
+        if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
+            rgba = image.convert("RGBA")
+            flattened = PillowImage.new("RGB", rgba.size, "white")
+            flattened.paste(rgba, mask=rgba.getchannel("A"))
+            return flattened
+        return image.convert("RGB")
+
+
+def _jpeg_content(image: PillowImage.Image) -> MCPImage:
+    """Encode one prepared preview as compact MCP JPEG image content."""
+    preview = BytesIO()
+    image.save(preview, format="JPEG", quality=82, optimize=True)
+    return MCPImage(data=preview.getvalue(), format="jpeg")
+
+
+def _display_images(paths: list[Path]) -> list[MCPImage]:
+    """Return one preview or one labeled contact sheet for reliable chat display."""
+    if len(paths) == 1:
+        image = _preview_image(paths[0], (DISPLAY_MAX_EDGE, DISPLAY_MAX_EDGE))
+        return [_jpeg_content(image)]
+
+    columns = 2
+    tile_width, image_height, label_height = 512, 384, 40
+    rows = (len(paths) + columns - 1) // columns
+    sheet = PillowImage.new(
+        "RGB", (columns * tile_width, rows * (image_height + label_height)), "#111827"
+    )
+    draw = ImageDraw.Draw(sheet)
+    for index, path in enumerate(paths):
+        image = _preview_image(path, (tile_width - 24, image_height - 24))
+        column, row = index % columns, index // columns
+        left = column * tile_width + (tile_width - image.width) // 2
+        top = row * (image_height + label_height) + (image_height - image.height) // 2
+        sheet.paste(image, (left, top))
+        label = path.name if len(path.name) <= 58 else f"{path.name[:55]}..."
+        draw.text(
+            (column * tile_width + 12, row * (image_height + label_height) + image_height + 10),
+            label,
+            fill="white",
+        )
+    return [_jpeg_content(sheet)]
 
 
 def _zip_resource(paths: list[Path]) -> EmbeddedResource:
@@ -90,12 +141,13 @@ class LunaVaultMCP:
             """Fetch visible images for chat display or as a downloadable ZIP.
 
             Use exact filenames returned by list_images or search_images. The display
-            mode returns native MCP image blocks; zip returns one embedded ZIP file.
+            mode returns one preview or a labeled contact sheet; zip returns the
+            original files in one embedded ZIP resource.
             Hidden images are never available through this public tool.
             """
             paths = _selected_visible_paths(vault, names)
             if delivery == "display":
-                return [MCPImage(path=path) for path in paths]
+                return _display_images(paths)
             return _zip_resource(paths)
 
         @self.mcp.tool()
