@@ -31,6 +31,7 @@ class FakeVault:
         self.root = root
         self.hidden = set()
         self.uploads = []
+        self.favorite_updates = []
 
     def ingest_base64(self, name: str, content_base64: str, replace: bool = False):
         self.uploads.append((name, content_base64, replace))
@@ -43,6 +44,14 @@ class FakeVault:
         if not path.is_file():
             raise FileNotFoundError(name)
         return path
+
+    def set_favorite(self, names: list[str], favorite: bool):
+        self.favorite_updates.append((names, favorite))
+        return {
+            "status": "favorited" if favorite else "unfavorited",
+            "names": names,
+            "count": len(names),
+        }
 
 
 class ImageDeliveryTests(unittest.TestCase):
@@ -97,6 +106,25 @@ class ImageDeliveryTests(unittest.TestCase):
             _image_source_base64(
                 "aW1hZ2U=", "data:image/png;base64,aW1hZ2U="
             )
+
+    def test_set_favorite_images_adds_and_removes_from_chat(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("set_favorite_images")
+
+        added = asyncio.run(
+            tool.run({"names": ["one.png", "two.jpg"], "favorite": True})
+        )
+        removed = asyncio.run(
+            tool.run({"names": ["one.png"], "favorite": False})
+        )
+
+        self.assertEqual(added["status"], "favorited")
+        self.assertEqual(added["count"], 2)
+        self.assertEqual(removed["status"], "unfavorited")
+        self.assertEqual(
+            self.vault.favorite_updates,
+            [(["one.png", "two.jpg"], True), (["one.png"], False)],
+        )
 
     def test_selection_deduplicates_in_requested_order(self) -> None:
         paths = _selected_visible_paths(

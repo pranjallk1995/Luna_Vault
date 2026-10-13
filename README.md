@@ -113,6 +113,7 @@ Luna Vault exposes these tools to connected MCP clients:
 - `modify_image` - replace a visible image and refresh its metadata.
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
 - `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.
+- `set_favorite_images` - add or remove visible images from Favorites using exact filenames.
 - `remove_image` - delete a visible image and its metadata.
 - `search_images` - search captions and tags without opening original images.
 - `backfill_metadata` - generate missing or stale metadata for imported files.

@@ -277,6 +277,17 @@ class LunaVaultMCP:
             return vault.rename(name, new_name)
 
         @self.mcp.tool()
+        def set_favorite_images(
+            names: list[str], favorite: bool
+        ) -> dict[str, Any]:
+            """Add or remove visible images from Favorites.
+
+            Use exact filenames returned by list_images or search_images. Set
+            favorite to true to add the images or false to remove them.
+            """
+            return vault.set_favorite(names, favorite)
+
+        @self.mcp.tool()
         def remove_image(name: str) -> dict[str, str]:
             """Remove a non-hidden image and its persisted metadata consistently."""
             return vault.remove(name)
