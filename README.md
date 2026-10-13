@@ -49,7 +49,7 @@ display previews, download selected images, and manage the visible collection
 through natural-language requests.
 
 <p align="center">
-  <img src="docs/images/chatgpt-mcp-interaction.png" alt="ChatGPT interacting with Luna Vault through MCP" width="760">
+  <img src="docs/assets/chatgpt-mcp-interaction.png" alt="ChatGPT interacting with Luna Vault through MCP" width="760">
 </p>
 
 ## Run
