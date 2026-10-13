@@ -47,6 +47,8 @@ class LunaVaultUI:
 
     def gallery_column_count(self) -> int:
         """Use one gallery column on mobile and the configured count elsewhere."""
+        if st.session_state.get("gallery_view_mode") == "list":
+            return 1
         user_agent = st.context.headers.get("User-Agent", "")
         return (
             1
@@ -66,6 +68,8 @@ class LunaVaultUI:
     def initialize_state() -> None:
         """Initialize all Streamlit session-state values used by the application."""
         defaults = {
+            "color_theme": "dark",
+            "gallery_view_mode": "grid",
             "saved_uploads": set(),
             "uploaded_images": [],
             "uploader_key": 0,
@@ -139,7 +143,7 @@ class LunaVaultUI:
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                color: rgba(250, 250, 250, 0.6);
+                color: var(--lv-muted);
                 font-size: 0.875rem;
                 line-height: 1.25rem;
                 margin-bottom: 0.25rem;

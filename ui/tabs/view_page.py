@@ -33,6 +33,68 @@ class ViewPage(LunaVaultUI):
         st.session_state.view_generation += 1
         st.session_state.download_generation += 1
 
+    def render_image_menu(
+        self, container, image_path: Path, generation: int, key_prefix: str
+    ) -> None:
+        """Render download and delete actions in a compact three-dot menu."""
+        with container.popover(
+            ":material/more_vert:",
+            use_container_width=True,
+        ):
+            download_column, delete_column = st.columns(2, gap="small")
+            download_column.download_button(
+                ":material/download:",
+                data=image_path.read_bytes(),
+                file_name=self.display_name(image_path.name),
+                mime=f"image/{image_path.suffix.lower().lstrip('.')}",
+                width="stretch",
+                key=f"{key_prefix}_download_{generation}_{image_path.name}",
+            )
+            if delete_column.button(
+                ":material/delete:",
+                width="stretch",
+                key=f"{key_prefix}_delete_{generation}_{image_path.name}",
+            ):
+                st.session_state.pending_view_delete = image_path.name
+                st.rerun()
+    def render_list(
+        self,
+        images: list[Path],
+        metadata_by_name: dict[str, dict],
+        generation: int,
+        current_page: int,
+    ) -> Path | None:
+        """Render compact image rows and return an image opened by the user."""
+        opened_image = None
+        for image_path in images:
+            with st.container(border=True):
+                thumbnail_column, detail_column = st.columns(
+                    [1, 3], vertical_alignment="center"
+                )
+                thumbnail_column.image(
+                    self.create_gallery_thumbnail(image_path), width="stretch"
+                )
+                name_column, menu_column = detail_column.columns(
+                    [8, 1], vertical_alignment="center"
+                )
+                self.render_image_name(name_column, image_path.name)
+                self.render_image_menu(
+                    menu_column, image_path, generation, "view_list"
+                )
+                metadata = metadata_by_name.get(image_path.name)
+                if metadata:
+                    detail_column.caption(metadata["caption"])
+                    detail_column.caption(
+                        "  ".join(f"#{tag}" for tag in metadata["tags"])
+                    )
+                if detail_column.button(
+                    ":material/fullscreen:",
+                    help="View full image",
+                    width="stretch",
+                    key=f"view_list_full_{generation}_{current_page}_{image_path.name}",
+                ):
+                    opened_image = image_path
+        return opened_image
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
@@ -59,7 +121,15 @@ class ViewPage(LunaVaultUI):
         )
         clicked_image = None
         self.render_gallery_transition_marker("view_page")
-        for row_start in range(0, len(page_images), columns_per_row):
+        if st.session_state.gallery_view_mode == "list":
+            clicked_image = self.render_list(
+                page_images, metadata_by_name, generation, current_page
+            )
+        for row_start in (
+            []
+            if st.session_state.gallery_view_mode == "list"
+            else range(0, len(page_images), columns_per_row)
+        ):
             row_images = page_images[row_start : row_start + columns_per_row]
             thumbnails = [self.create_gallery_thumbnail(path) for path in row_images]
             clicked_indices = (
@@ -78,30 +148,19 @@ class ViewPage(LunaVaultUI):
 
             columns = st.columns(columns_per_row)
             for column, image_path in zip(columns, row_images):
-                self.render_image_name(column, image_path.name)
+                name_column, menu_column = column.columns(
+                    [8, 1], vertical_alignment="center"
+                )
+                self.render_image_name(name_column, image_path.name)
+                self.render_image_menu(
+                    menu_column, image_path, generation, "view_grid"
+                )
                 metadata = metadata_by_name.get(image_path.name)
                 if metadata:
                     with column.expander("Caption & tags", expanded=False):
                         st.write(metadata["caption"])
                         st.caption("  ".join(f"#{tag}" for tag in metadata["tags"]))
-                download_column, delete_column = column.columns(2)
-                download_column.download_button(
-                    ":material/download:",
-                    data=image_path.read_bytes(),
-                    file_name=self.display_name(image_path.name),
-                    mime=f"image/{image_path.suffix.lower().lstrip('.')}",
-                    help="Download image",
-                    width="stretch",
-                    key=f"view_download_{generation}_{image_path.name}",
-                )
-                if delete_column.button(
-                    ":material/delete:",
-                    help="Delete image",
-                    width="stretch",
-                    key=f"view_delete_{generation}_{image_path.name}",
-                ):
-                    st.session_state.pending_view_delete = image_path.name
-                    st.rerun()
+
 
             if clicked_indices and clicked_image is None:
                 index = clicked_indices[-1]
@@ -156,24 +215,16 @@ class ViewImagesPage(LunaVaultUI):
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         """Render the view page interface."""
-        search_column, clear_column = st.columns([33, 7], vertical_alignment="bottom")
         query = (
-            search_column.text_input(
+            st.text_input(
                 "Search by image name",
                 placeholder=self.gallery_search_placeholder(),
                 key="view_name_search",
                 icon=":material/search:",
+                label_visibility="collapsed",
             )
             .strip()
             .casefold()
-        )
-        clear_column.button(
-            ":material/close:",
-            key="clear_view_name_search",
-            help="Clear search",
-            on_click=self.clear_search,
-            args=("view_name_search",),
-            width="stretch",
         )
         filtered = [
             path

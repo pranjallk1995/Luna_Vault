@@ -6,32 +6,60 @@ from pathlib import Path
 import streamlit as st
 
 
-def apply_app_styles() -> None:
-    """Apply Luna Vault's presentation layer without altering widget behavior."""
+def apply_app_styles(theme: str = "dark") -> None:
+    """Apply the selected Luna Vault palette without altering widget behavior."""
+    palette = (
+        "--lv-bg:#f5f7fb;--lv-surface:#ffffff;--lv-control:#eef2f8;"
+        "--lv-control-hover:#e2e8f0;--lv-text:#111827;--lv-muted:#64748b;"
+        "--lv-border:rgba(71,85,105,.20);--lv-strong:rgba(99,102,241,.48);"
+        "--lv-accent:#6366f1;--lv-soft:rgba(99,102,241,.12);"
+        if theme == "light"
+        else
+        "--lv-bg:#080c18;--lv-surface:#11182a;--lv-control:#121a2d;"
+        "--lv-control-hover:#1a2440;--lv-text:#f1f5f9;--lv-muted:#9aa6bd;"
+        "--lv-border:rgba(148,163,184,.18);--lv-strong:rgba(167,139,250,.42);"
+        "--lv-accent:#a78bfa;--lv-soft:rgba(167,139,250,.12);"
+    )
+    st.markdown(
+        f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True
+    )
     st.markdown(
         """
         <style>
-        :root { --lv-bg:#080c18; --lv-border:rgba(148,163,184,.18); --lv-strong:rgba(167,139,250,.42); --lv-muted:#9aa6bd; --lv-accent:#a78bfa; --lv-soft:rgba(167,139,250,.12); }
-        .stApp { background:radial-gradient(circle at 82% -10%,rgba(124,58,237,.14),transparent 30rem),var(--lv-bg); }
+
+        .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(124,58,237,.14),transparent 30rem),var(--lv-bg); }
         .block-container { max-width:1180px; padding-top:1.35rem; padding-bottom:3rem; }
+        .stApp p,.stApp label,.stApp [data-testid="stMarkdownContainer"] { color:var(--lv-text); }
+        div[data-testid="stHorizontalBlock"]:has(.lv-header) { align-items:center; margin-bottom:.55rem; }
+        div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button { white-space:nowrap; }
         header[data-testid="stHeader"] { background:transparent; }
         #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
         .lv-header { display:flex; align-items:center; gap:.9rem; margin-bottom:1rem; }
         .lv-mark { display:block; width:2.65rem; height:2.65rem; border:1px solid var(--lv-strong); border-radius:.85rem; object-fit:cover; box-shadow:0 12px 34px rgba(0,0,0,.22); }
-        .lv-title { margin:0; color:#f8fafc; font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
+        .lv-title { margin:0; color:var(--lv-text); font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
         .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
-        .lv-section { margin:.9rem 0 1.15rem; }
-        .lv-eyebrow { color:var(--lv-accent); font-size:.72rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
-        .lv-section h2 { margin:.25rem 0; color:#f1f5f9; font-size:1.3rem; letter-spacing:-.025em; }
-        .lv-section p { max-width:45rem; margin:0; color:var(--lv-muted); font-size:.88rem; }
-        div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:rgba(17,24,42,.72); }
+        div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
         div[data-testid="stTabs"] [data-baseweb="tab"] { height:2.55rem; padding:0 1rem; border-radius:.65rem; color:var(--lv-muted); }
         div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:#ede9fe; }
         div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display:none; }
-        div[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--lv-border); border-radius:14px; background:rgba(17,24,42,.62); box-shadow:0 10px 30px rgba(0,0,0,.12); }
+        div[data-testid="stPopover"] > button[data-testid] {
+            width:1.75rem!important; min-width:1.75rem!important;
+            height:2rem!important; min-height:2rem!important; padding:0!important;
+            border:0!important; border-radius:.35rem!important;
+            background:transparent!important; box-shadow:none!important;
+        }
+        div[data-testid="stPopover"] > button[data-testid]:hover,
+        div[data-testid="stPopover"] > button[data-testid]:focus {
+            border:0!important; background:transparent!important;
+            box-shadow:none!important; transform:none!important; outline:0!important;
+        }
+        div[data-testid="stPopover"] > button[data-testid] svg:last-child {
+            display:none!important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--lv-border); border-radius:14px; background:var(--lv-surface); box-shadow:0 10px 30px rgba(0,0,0,.12); }
         div[data-testid="stFileUploader"] section { min-height:10rem; border:1px dashed rgba(167,139,250,.48); border-radius:14px; background:linear-gradient(145deg,rgba(167,139,250,.09),rgba(17,24,42,.7)); }
         div[data-testid="stFileUploader"] section:hover { border-color:var(--lv-accent); background:rgba(167,139,250,.1); }
-        div[data-baseweb="input"] > div,div[data-baseweb="select"] > div { border-color:var(--lv-border)!important; border-radius:.75rem!important; background:rgba(17,24,42,.84)!important; }
+        div[data-baseweb="input"] > div,div[data-baseweb="select"] > div { border-color:var(--lv-border)!important; border-radius:.75rem!important; background:var(--lv-surface)!important; }
         .stButton > button,.stDownloadButton > button,div[data-testid="stFormSubmitButton"] > button { min-height:2.55rem; border-color:var(--lv-border); border-radius:.75rem; background:rgba(17,24,42,.82); transition:border-color 140ms ease,background 140ms ease,transform 140ms ease; }
         .stButton > button:hover,.stDownloadButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover { border-color:var(--lv-strong); background:var(--lv-soft); color:#f5f3ff; transform:translateY(-1px); }
         button[kind="primary"] { border-color:transparent!important; background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important; color:white!important; }
@@ -45,15 +73,15 @@ def apply_app_styles() -> None:
         button[data-testid^="stBaseButton"] {
             min-height:2.625rem!important; height:2.625rem;
             padding:.45rem .9rem!important; border:1px solid var(--lv-border)!important;
-            border-radius:.5rem!important; background:#121a2d!important;
-            color:#e8edf7!important; font-weight:650!important;
+            border-radius:.5rem!important; background:var(--lv-control)!important;
+            color:var(--lv-text)!important; font-weight:650!important;
             box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
         }
         .stButton > button:hover,.stDownloadButton > button:hover,
         div[data-testid="stFormSubmitButton"] > button:hover,
         button[data-testid^="stBaseButton"]:hover {
-            border-color:var(--lv-strong)!important; background:#1a2440!important;
-            color:#fff!important; transform:translateY(-1px);
+            border-color:var(--lv-strong)!important; background:var(--lv-control-hover)!important;
+            color:var(--lv-text)!important; transform:translateY(-1px);
         }
         .stButton > button:focus-visible,.stDownloadButton > button:focus-visible,
         button[data-testid^="stBaseButton"]:focus-visible {
@@ -61,6 +89,31 @@ def apply_app_styles() -> None:
         }
         button[data-testid="stBaseButton-primary"],button[kind="primary"] {
             border-color:transparent!important; background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important;
+        }
+        div[data-testid="stPopover"] button {
+            width:1.75rem!important; min-width:1.75rem!important;
+            height:2rem!important; min-height:2rem!important; padding:0!important;
+            border:0!important; background:transparent!important;
+            box-shadow:none!important; transform:none!important; outline:0!important;
+        }
+        div[data-testid="stPopover"] button:hover,
+        div[data-testid="stPopover"] button:focus,
+        div[data-testid="stPopover"] button:focus-visible {
+            border:0!important; background:transparent!important;
+            box-shadow:none!important; transform:none!important; outline:0!important;
+        }
+        div[data-testid="stPopover"] button svg { display:none!important; }
+        div[data-testid="stPopoverBody"] {
+            width:6.75rem!important; min-width:6.75rem!important; max-width:6.75rem!important;
+            margin-top:-.4rem!important; margin-right:0!important; margin-bottom:0!important;
+            padding:.4rem!important; border-radius:.65rem!important;
+        }
+        div[data-testid="stPopoverBody"] div[data-testid="stHorizontalBlock"] {
+            gap:.35rem!important;
+        }
+        div[data-testid="stPopoverBody"] .stButton > button,
+        div[data-testid="stPopoverBody"] .stDownloadButton > button {
+            padding:0!important; min-width:2.5rem!important;
         }
         button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
         div[data-baseweb="input"] > div,div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
@@ -79,6 +132,8 @@ def apply_app_styles() -> None:
         @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
         @media (max-width:700px) {
             .block-container { padding:.85rem .8rem 2rem; }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) { flex-wrap:wrap!important; }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) > div[data-testid="stColumn"] { flex:1 1 100%!important; width:100%!important; }
             .lv-subtitle { display:none; }
             div[data-testid="stTabs"] [data-baseweb="tab-list"] { width:100%; justify-content:space-around; }
             div[data-testid="stTabs"] [data-baseweb="tab"] { flex:1 1 0; justify-content:center; padding:0 .55rem; }
@@ -102,20 +157,6 @@ def render_app_header(logo_path: Path) -> None:
                 <h1 class="lv-title">Luna Vault</h1>
                 <p class="lv-subtitle">Private, AI-organized image storage</p>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_section_intro(eyebrow: str, title: str, description: str) -> None:
-    """Render a consistent heading for a top-level app section."""
-    st.markdown(
-        f"""
-        <div class="lv-section">
-            <div class="lv-eyebrow">{eyebrow}</div>
-            <h2>{title}</h2>
-            <p>{description}</p>
         </div>
         """,
         unsafe_allow_html=True,
