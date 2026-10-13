@@ -206,6 +206,30 @@ Append `/mcp` when configuring the plugin:
 https://luna-vault.example-tailnet.ts.net/mcp
 ```
 
+If HTTPS port `8443` is unused, you can optionally expose the Streamlit UI as a
+separate Funnel endpoint:
+
+```sh
+tailscale funnel --bg --https=8443 http://127.0.0.1:18501
+```
+
+The intended public endpoints are:
+
+| Service | Public endpoint |
+| --- | --- |
+| MCP | `https://luna-vault.example-tailnet.ts.net/mcp` |
+| Web UI | `https://luna-vault.example-tailnet.ts.net:8443/` |
+
+The UI address works only while Funnel is configured successfully, Tailscale is
+connected, and the UI container is listening on port `18501`. This command is
+optional and is not run automatically by Docker Compose.
+
+> **Security warning:** Funnel makes the entire UI publicly accessible. Luna
+> Vault does not currently require authentication for its main visible-image UI,
+> including viewing, downloading, modifying, and deleting visible images. Do not
+> enable the UI Funnel until UI-wide authentication is implemented. Tailscale
+> Funnel encrypts transport but does not authenticate visitors.
+
 In ChatGPT, open **Plugins**, select **+**, and choose **Add custom MCP server**.
 Use these settings:
 
