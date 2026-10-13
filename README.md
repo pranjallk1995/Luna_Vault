@@ -14,6 +14,7 @@ searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the index
 collection available to AI assistants of your choice (ChatGPT here) for fast search and safe image-management
 operations without repeatedly opening every original image.
 
+
 The Streamlit interface lets you upload, search, view, favorite, download, hide,
 restore, and delete images. Image data, metadata, and AI models persist in Docker volumes,
 while the password-protected hidden vault stays separate from normal galleries
@@ -41,6 +42,15 @@ provide a focused collection for images you return to often.
 
 The hidden vault keeps private images behind a password and supports adding,
 viewing, downloading, restoring, searching, and deleting them separately.
+
+Connect Luna Vault's `/mcp` endpoint to the ChatGPT app as a custom MCP server.
+Once connected, you can ask ChatGPT to search the vault, inspect image metadata,
+display previews, download selected images, and manage the visible collection
+through natural-language requests.
+
+<p align="center">
+  <img src="docs/images/chatgpt-mcp-interaction.png" alt="ChatGPT interacting with Luna Vault through MCP" width="760">
+</p>
 
 ## Run
 
@@ -98,8 +108,8 @@ Luna Vault exposes these tools to connected MCP clients:
 - `list_images` - list visible images with captions and tags.
 - `view_image` - return a visible image.
 - `fetch_images` - display selected visible images in chat or return them as a ZIP.
-- `add_image` - add an image and generate metadata.
-- `upload_image` - upload an image supplied by chat as Base64, an image data URL, or a public HTTPS image URL, then generate metadata.
+- `add_image` - programmatically add Base64 image data and generate metadata.
+- `upload_image` - upload a file attached to the user's ChatGPT message through ChatGPT's native file parameter, then generate metadata.
 - `modify_image` - replace a visible image and refresh its metadata.
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
 - `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.
@@ -108,6 +118,7 @@ Luna Vault exposes these tools to connected MCP clients:
 - `backfill_metadata` - generate missing or stale metadata for imported files.
 
 Hidden-vault password and session endpoints are UI-only custom routes, not MCP tools.
+
 ## Metadata and search
 
 Every add, upload, or replacement is analyzed before it is committed. The generated caption, normalized tags, content hash, model name, and timestamps are stored in PostgreSQL. Deletion removes the file and its metadata consistently.
