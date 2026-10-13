@@ -46,9 +46,8 @@ class UploadPage(LunaVaultUI):
                 progress.progress(
                     progress_value,
                     text=(
-                        f"Analyzing {display_name} with the local vision model. "
-                        f"Still working: {elapsed}s elapsed. The first request can "
-                        f"take longer while the model becomes ready{dots}"
+                        f"Analyzing {display_name} with the vision model. "
+                        f"Time: {elapsed}s elapsed{dots} "
                     ),
                 )
                 tick += 1
