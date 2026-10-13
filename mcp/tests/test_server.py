@@ -18,6 +18,7 @@ from server import (
     MAX_FETCH_IMAGES,
     LunaVaultMCP,
     _display_images,
+    _image_source_base64,
     _selected_visible_paths,
     _zip_resource,
 )
@@ -66,6 +67,28 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertEqual(result["status"], "created")
         self.assertEqual(result["name"], "chat.png")
         self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
+
+    def test_upload_image_accepts_image_data_url(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("upload_image")
+        result = asyncio.run(
+            tool.run(
+                {
+                    "name": "chat.png",
+                    "image_url": "data:image/png;base64,aW1hZ2U=",
+                }
+            )
+        )
+        self.assertEqual(result["status"], "created")
+        self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
+
+    def test_upload_source_requires_exactly_one_input(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            _image_source_base64(None, None)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            _image_source_base64(
+                "aW1hZ2U=", "data:image/png;base64,aW1hZ2U="
+            )
 
     def test_selection_deduplicates_in_requested_order(self) -> None:
         paths = _selected_visible_paths(

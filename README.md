@@ -99,7 +99,7 @@ Luna Vault exposes these tools to connected MCP clients:
 - `view_image` - return a visible image.
 - `fetch_images` - display selected visible images in chat or return them as a ZIP.
 - `add_image` - add an image and generate metadata.
-- `upload_image` - upload base64 image data supplied by an attachment-aware chat client and generate metadata.
+- `upload_image` - upload an image supplied by chat as Base64, an image data URL, or a public HTTPS image URL, then generate metadata.
 - `modify_image` - replace a visible image and refresh its metadata.
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
 - `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.
