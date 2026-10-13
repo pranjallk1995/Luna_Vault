@@ -9,7 +9,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - lunavault_network
+      lunavault_network:
+        aliases:
+          - luna-vault-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lunavault -d lunavault"]
       interval: 10s
@@ -24,7 +26,9 @@ services:
     ports:
       - "127.0.0.1:19080:8080"
     networks:
-      - lunavault_network
+      lunavault_network:
+        aliases:
+          - luna-vault-adminer
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,7 +42,9 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     networks:
-      - lunavault_network
+      lunavault_network:
+        aliases:
+          - luna-vault-ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -53,7 +59,9 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     networks:
-      - lunavault_network
+      lunavault_network:
+        aliases:
+          - luna-vault-model-pull
     depends_on:
       ollama:
         condition: service_healthy
@@ -90,7 +98,9 @@ services:
         - action: rebuild
           path: ./mcp/Dockerfile
     networks:
-      - lunavault_network
+      lunavault_network:
+        aliases:
+          - luna-vault-mcp
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +142,9 @@ services:
         - action: rebuild
           path: ./ui/Dockerfile
     networks:
-      - lunavault_network
+      lunavault_network:
+        aliases:
+          - luna-vault-ui
     depends_on:
       mcp:
         condition: service_healthy
