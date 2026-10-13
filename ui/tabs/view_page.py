@@ -53,15 +53,14 @@ class ViewPage(LunaVaultUI):
         if st.session_state.pending_view_delete not in vault_names:
             st.session_state.pending_view_delete = None
         generation = st.session_state.view_generation
+        columns_per_row = self.gallery_column_count()
         current_page, page_images = self.paginated_images(
             vault_images, "view_page", f"view_{generation}"
         )
         clicked_image = None
         self.render_gallery_transition_marker("view_page")
-        for row_start in range(0, len(page_images), self.config.gallery_columns):
-            row_images = page_images[
-                row_start : row_start + self.config.gallery_columns
-            ]
+        for row_start in range(0, len(page_images), columns_per_row):
+            row_images = page_images[row_start : row_start + columns_per_row]
             thumbnails = [self.create_gallery_thumbnail(path) for path in row_images]
             clicked_indices = (
                 st_img_selector(
@@ -69,7 +68,7 @@ class ViewPage(LunaVaultUI):
                     value=[],
                     corner_radius=self.config.gallery_corner_radius,
                     selection_color=self.config.gallery_selection_color,
-                    img_per_row=self.config.gallery_columns,
+                    img_per_row=columns_per_row,
                     border_thickness=self.config.gallery_border_thickness,
                     max_row_height=self.config.gallery_max_row_height,
                     key=f"view_selector_{generation}_{current_page}_{row_start}",
@@ -77,7 +76,7 @@ class ViewPage(LunaVaultUI):
                 or []
             )
 
-            columns = st.columns(self.config.gallery_columns)
+            columns = st.columns(columns_per_row)
             for column, image_path in zip(columns, row_images):
                 self.render_image_name(column, image_path.name)
                 metadata = metadata_by_name.get(image_path.name)

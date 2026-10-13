@@ -48,8 +48,9 @@ class SelectableGallery(LunaVaultUI):
         item_actions: ItemActions | None = None,
     ) -> None:
         """Render selectable thumbnails, filenames, and optional per-item actions."""
-        for row_start in range(0, len(images), self.config.gallery_columns):
-            row_images = images[row_start : row_start + self.config.gallery_columns]
+        columns = self.gallery_column_count()
+        for row_start in range(0, len(images), columns):
+            row_images = images[row_start : row_start + columns]
             row_names = {path.name for path in row_images}
             selected_indices = [
                 index
@@ -62,7 +63,7 @@ class SelectableGallery(LunaVaultUI):
                     value=selected_indices,
                     corner_radius=self.config.gallery_corner_radius,
                     selection_color=self.config.gallery_selection_color,
-                    img_per_row=self.config.gallery_columns,
+                    img_per_row=columns,
                     border_thickness=self.config.gallery_border_thickness,
                     max_row_height=self.config.gallery_max_row_height,
                     key=f"{key_prefix}_{generation}_{page}_{row_start}",
@@ -75,10 +76,10 @@ class SelectableGallery(LunaVaultUI):
                 for index in selected
                 if 0 <= index < len(row_images)
             )
-            self.render_filename_row(row_images)
+            self.render_filename_row(row_images, columns=columns)
 
             if item_actions:
-                action_columns = st.columns(self.config.gallery_columns)
+                action_columns = st.columns(columns)
                 for column, image_path in zip(action_columns, row_images):
                     item_actions(column, image_path, generation, page)
 

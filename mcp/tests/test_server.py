@@ -1,5 +1,6 @@
 """Tests for MCP image delivery helpers."""
 
+import asyncio
 import base64
 import sys
 import tempfile
@@ -15,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from server import (
     DISPLAY_MAX_EDGE,
     MAX_FETCH_IMAGES,
+    LunaVaultMCP,
     _display_images,
     _selected_visible_paths,
     _zip_resource,
@@ -27,6 +29,11 @@ class FakeVault:
     def __init__(self, root: Path) -> None:
         self.root = root
         self.hidden = set()
+        self.uploads = []
+
+    def ingest_base64(self, name: str, content_base64: str, replace: bool = False):
+        self.uploads.append((name, content_base64, replace))
+        return {"name": name, "caption": "Uploaded in chat.", "tags": ["chat"]}
 
     def visible_path(self, name: str) -> Path:
         if name in self.hidden:
@@ -49,6 +56,16 @@ class ImageDeliveryTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def test_upload_image_delegates_chat_payload_to_ingestion(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("upload_image")
+        result = asyncio.run(
+            tool.run({"name": "chat.png", "content_base64": "aW1hZ2U="})
+        )
+        self.assertEqual(result["status"], "created")
+        self.assertEqual(result["name"], "chat.png")
+        self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
 
     def test_selection_deduplicates_in_requested_order(self) -> None:
         paths = _selected_visible_paths(

@@ -159,6 +159,18 @@ class LunaVaultMCP:
             }
 
         @self.mcp.tool()
+        def upload_image(name: str, content_base64: str) -> dict[str, Any]:
+            """Upload an image supplied by chat as base64 and generate metadata.
+
+            Use the attachment's original filename and base64-encoded bytes. This is
+            intended for chat clients that can pass attached image data to MCP tools.
+            """
+            return {
+                "status": "created",
+                **vault.ingest_base64(name, content_base64, replace=False),
+            }
+
+        @self.mcp.tool()
         def modify_image(name: str, content_base64: str) -> dict[str, Any]:
             """Analyze and atomically replace a non-hidden image and its metadata."""
             return {

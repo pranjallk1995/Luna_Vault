@@ -37,6 +37,24 @@ class LunaVaultUI:
         self.image_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _is_mobile_user_agent(user_agent: str) -> bool:
+        """Identify common phone and tablet browser user agents."""
+        normalized = user_agent.casefold()
+        return any(
+            token in normalized
+            for token in ("android", "iphone", "ipad", "ipod", "mobile")
+        )
+
+    def gallery_column_count(self) -> int:
+        """Use one gallery column on mobile and the configured count elsewhere."""
+        user_agent = st.context.headers.get("User-Agent", "")
+        return (
+            1
+            if self._is_mobile_user_agent(user_agent)
+            else self.config.gallery_columns
+        )
+
+    @staticmethod
     def initialize_state() -> None:
         """Initialize all Streamlit session-state values used by the application."""
         defaults = {
@@ -241,9 +259,10 @@ class LunaVaultUI:
         self,
         row_images: list[Path],
         metadata_by_name: dict[str, dict] | None = None,
+        columns: int | None = None,
     ) -> None:
         """Render filenames and optional persisted metadata below one gallery row."""
-        filename_columns = st.columns(self.config.gallery_columns)
+        filename_columns = st.columns(columns or self.gallery_column_count())
         for column, image_path in zip(filename_columns, row_images):
             self.render_image_name(column, image_path.name)
             metadata = (metadata_by_name or {}).get(image_path.name)
