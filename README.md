@@ -150,71 +150,91 @@ If the stack is already running, attach the watcher with `docker compose watch`.
 An already-open Codex task may still need to be reopened after an MCP tool-schema
 change so the client refreshes its discovered tool catalog.
 
-### Add Luna Vault as a plugin with a Cloudflare Quick Tunnel
+### Add Luna Vault as a plugin with a stable Tailscale Funnel address
 
-For development, a Cloudflare Quick Tunnel can expose the local MCP service to
-ChatGPT over a temporary public HTTPS URL. Run these commands inside WSL.
+Tailscale Funnel can expose the local MCP service to ChatGPT over public HTTPS.
+Unlike a temporary tunnel, the node receives a predictable `*.ts.net` hostname
+that can be reused whenever the WSL node, Tailscale, and the MCP container are
+running. Funnel is required here because Tailscale Serve is available only
+inside your tailnet. Run these commands inside WSL 2.
 
-Install `cloudflared` from Cloudflare's Debian/Ubuntu package repository:
+Install Tailscale, authenticate the WSL node, and confirm it is connected:
 
 ```sh
-sudo apt-get update
-sudo apt-get install -y curl
-sudo mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
-  | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' \
-  | sudo tee /etc/apt/sources.list.d/cloudflared.list
-sudo apt-get update
-sudo apt-get install -y cloudflared
-cloudflared --version
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+tailscale status
 ```
 
-Start Luna Vault in one WSL terminal:
+Open the sign-in URL printed by `tailscale up`, authenticate, and add the WSL
+node to your tailnet. If Tailscale also runs on Windows, avoid running both the
+Windows and WSL clients at the same time; Tailscale recommends using only one of
+them. For this setup, Funnel must run from WSL because it proxies the WSL-bound
+MCP port.
+
+In the [Tailscale Machines](https://login.tailscale.com/admin/machines) page,
+give this WSL node a stable name such as `luna-vault`. Changing or deleting the
+node later changes or removes its public address.
+
+Start Luna Vault and wait for MCP to become healthy:
 
 ```sh
 cd ~/Luna_Vault
 docker compose up --build --watch
 ```
 
-After the MCP service is healthy, open a second WSL terminal and create the
-tunnel to the host-bound MCP port:
+In another WSL terminal, enable a persistent background Funnel that proxies the
+host-bound MCP port:
 
 ```sh
-cloudflared tunnel --url http://localhost:18000
+sudo tailscale funnel --bg http://127.0.0.1:18000
+tailscale funnel status
 ```
 
-`cloudflared` prints a URL similar to
-`https://example-words.trycloudflare.com`. Keep that terminal running and form
-the complete MCP endpoint by appending `/mcp`:
+The first Funnel command may open an approval page to enable Funnel, MagicDNS,
+HTTPS certificates, and the required tailnet policy. Its output shows a stable
+public URL similar to:
 
 ```text
-https://example-words.trycloudflare.com/mcp
+https://luna-vault.example-tailnet.ts.net
+```
+
+Append `/mcp` when configuring the plugin:
+
+```text
+https://luna-vault.example-tailnet.ts.net/mcp
 ```
 
 In ChatGPT, open **Plugins**, select **+**, and choose **Add custom MCP server**.
 Use these settings:
 
 - Name: `Luna Vault`
-- Server URL: the generated `https://...trycloudflare.com/mcp` URL
+- Server URL: your complete `https://...ts.net/mcp` URL
 - Authentication: **No authentication**
 
 Accept the risk confirmation, choose **Create as a plugin**, install the new
 personal plugin, then select it with `@Luna Vault` in a new Work chat. Use the
-full `/mcp` endpoint; the tunnel's root URL is not the MCP endpoint.
+full `/mcp` endpoint; the Funnel root URL is not the MCP endpoint.
 
-Quick Tunnels are intended only for testing and development. The hostname
-changes whenever a new tunnel is created, has no uptime guarantee, and stops
-working when `cloudflared` exits. Luna Vault currently exposes this MCP endpoint
-without authentication, so anyone who obtains the tunnel URL can call its tools,
-including tools that modify or delete images. Keep the URL private and stop the
-tunnel when testing is complete. Use a stable deployment with MCP-compatible
-OAuth before exposing Luna Vault beyond personal development.
+The `--bg` configuration survives terminal closure and resumes after Tailscale
+restarts, but the endpoint works only while the WSL node is running, Tailscale
+is connected, and the Luna Vault MCP container is available. Check it with
+`tailscale funnel status`. Disable the public endpoint with:
 
-References: [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/),
-[Cloudflare Linux downloads](https://developers.cloudflare.com/tunnel/downloads/),
-and the [OpenAI plugin quickstart](https://developers.openai.com/plugins/quickstart).
+```sh
+sudo tailscale funnel reset
+```
 
+Funnel is available on Tailscale's free plan but is currently a beta feature.
+Luna Vault currently exposes this MCP endpoint without server-level
+authentication, so anyone who obtains the URL can call tools that modify or
+delete images. Keep the address private, disable Funnel when it is not needed,
+and add MCP-compatible OAuth before treating it as a production deployment.
+
+References: [Tailscale on WSL 2](https://tailscale.com/docs/install/windows/wsl2),
+[Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel),
+[Funnel CLI](https://tailscale.com/docs/reference/tailscale-cli/funnel), and the
+[OpenAI plugin quickstart](https://developers.openai.com/plugins/quickstart).
 
 ### UI modules
 
