@@ -49,13 +49,11 @@ def _validate_public_https_url(url: str) -> None:
         raise ValueError("image_url must resolve only to public internet addresses.")
 
 
-def _image_source_base64(
-    content_base64: str | None, image_url: str | None, file_path: str | None
-) -> str:
+def _image_source_base64(content_base64: str | None, image_url: str | None) -> str:
     """Return Base64 image bytes from exactly one supported chat source."""
     supplied = sum(
         value is not None and bool(value.strip())
-        for value in (content_base64, image_url, file_path)
+        for value in (content_base64, image_url)
     )
     if supplied != 1:
         raise ValueError(
@@ -63,18 +61,6 @@ def _image_source_base64(
         )
     if content_base64 and content_base64.strip():
         return content_base64.strip()
-
-    if file_path is not None:
-        upload_root = Path("/workspace/uploads").resolve()
-        path = Path(file_path).resolve()
-        if not path.is_relative_to(upload_root):
-            raise ValueError("File path outside allowed directory")
-        if not path.is_file():
-            raise FileNotFoundError(f"Image not found: {path}")
-        if path.stat().st_size > 50 * 1024 * 1024:
-            raise ValueError("Image exceeds 50 MiB limit")
-        content_base64 = base64.b64encode(path.read_bytes()).decode("ascii")
-        return content_base64
 
     source = image_url.strip()
     if source.startswith("data:image/"):
@@ -248,33 +234,18 @@ class LunaVaultMCP:
             name: str,
             content_base64: str | None = None,
             image_url: str | None = None,
-            file_path: str | None = None,
         ) -> dict[str, Any]:
             """Upload an image from a ChatGPT attachment, Base64, or HTTPS URL.
 
             Provide exactly one of:
             - content_base64: Base64-encoded image data
             - image_url: Public HTTPS image URL or data URL
-            - file_path: ChatGPT attachment file path
 
             ChatGPT attachment paths may be converted to temporary
             HTTPS URLs by the tool infrastructure.
 
             Maximum image size: 50 MiB.
             """
-
-            if file_path:
-                if content_base64 is not None or image_url is not None:
-                    raise ValueError("Provide exactly one image source.")
-
-                if file_path.startswith("https://"):
-                    image_url = file_path
-                    file_path = None
-                else:
-                    raise ValueError(
-                        "Local filesystem paths are not supported by this server."
-                    )
-
             return {
                 "status": "created",
                 **vault.ingest_base64(
@@ -282,7 +253,6 @@ class LunaVaultMCP:
                     _image_source_base64(
                         content_base64,
                         image_url,
-                        file_path,
                     ),
                     replace=False,
                 ),
