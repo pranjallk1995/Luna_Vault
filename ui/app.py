@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 import streamlit as st
+from PIL import Image
 
 from config import UIConfig
 from styles import apply_app_styles, render_app_header
@@ -54,7 +55,7 @@ def main() -> None:
     """Configure Streamlit and render the active Luna Vault page."""
     st.set_page_config(
         page_title="Luna Vault",
-        page_icon=str(LOGO_PATH),
+        page_icon=Image.open(LOGO_PATH),
         layout="wide",
         initial_sidebar_state="collapsed",
     )
