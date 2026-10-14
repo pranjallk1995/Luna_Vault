@@ -138,7 +138,17 @@ def main() -> None:
             ":material/star: Favorite Images",
             ":material/lock: Hidden Images",
         ]
-    view_tab, favorites_tab, hidden_tab = st.tabs(tab_labels)
+    tab_keys = ["view", "favorites", "hidden"]
+    label_by_key = dict(zip(tab_keys, tab_labels))
+    selected_tab = st.segmented_control(
+        "Gallery section",
+        tab_keys,
+        default="view",
+        format_func=label_by_key.__getitem__,
+        key="gallery_section",
+        label_visibility="collapsed",
+        width="stretch",
+    )
 
     metadata_response = httpx.get(
         f"{config.api_url}/api/metadata",
@@ -155,11 +165,11 @@ def main() -> None:
     ]
 
 
-    with view_tab:
+    if selected_tab == "view":
         ViewImagesPage(config).render(vault_images, metadata_by_name)
-    with favorites_tab:
+    elif selected_tab == "favorites":
         FavoritesPage(config).render(vault_images)
-    with hidden_tab:
+    else:
         HiddenPage(config).render(vault_images)
 
 

@@ -19,7 +19,7 @@ class UIConfig:
     gallery_max_row_height: int = 240
     chunk_size: int = 1024 * 1024
     gallery_columns: int = 3
-    images_per_page: int = 6
+    images_per_page: int = 12
     image_extensions: frozenset[str] = frozenset(
         {".gif", ".jpeg", ".jpg", ".png", ".webp"}
     )

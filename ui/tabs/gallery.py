@@ -140,5 +140,6 @@ class SelectableGallery(LunaVaultUI):
             key_prefix,
             item_actions,
         )
+        self.render_gallery_footer(images, page_key, f"{key_prefix}_{generation}")
         self.finish_gallery_transition(page_key)
         return True

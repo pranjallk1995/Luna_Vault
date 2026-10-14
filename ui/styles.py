@@ -42,6 +42,8 @@ def apply_app_styles(theme: str = "dark") -> None:
         div[data-testid="stTabs"] [data-baseweb="tab"] { height:2.55rem; padding:0 1rem; border-radius:.65rem; color:var(--lv-muted); }
         div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:#ede9fe; }
         div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display:none; }
+        div[data-testid="stButtonGroup"] { padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
+        div[data-testid="stButtonGroup"] button { min-height:2.55rem!important; border:0!important; border-radius:.65rem!important; box-shadow:none!important; }
         div[data-testid="stPopover"] > button[data-testid] {
             width:1.75rem!important; min-width:1.75rem!important;
             height:2rem!important; min-height:2rem!important; padding:0!important;
@@ -59,11 +61,66 @@ def apply_app_styles(theme: str = "dark") -> None:
         div[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--lv-border); border-radius:14px; background:var(--lv-surface); box-shadow:0 10px 30px rgba(0,0,0,.12); }
         div[data-testid="stFileUploader"] section { min-height:10rem; border:1px dashed rgba(167,139,250,.48); border-radius:14px; background:linear-gradient(145deg,rgba(167,139,250,.09),rgba(17,24,42,.7)); }
         div[data-testid="stFileUploader"] section:hover { border-color:var(--lv-accent); background:rgba(167,139,250,.1); }
-        div[data-baseweb="input"] > div,div[data-baseweb="select"] > div { border-color:var(--lv-border)!important; border-radius:.75rem!important; background:var(--lv-surface)!important; }
+        div[data-baseweb="input"],div[data-baseweb="select"] > div { border:1px solid var(--lv-border)!important; border-radius:.75rem!important; background:var(--lv-surface)!important; box-shadow:none!important; }
+        div[data-baseweb="input"]:focus-within { border-color:var(--lv-strong)!important; }
+        div[data-baseweb="input"] > div { border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; }
+        .stApp input,.stApp textarea,
+        div[data-baseweb="select"] [role="combobox"],
+        div[data-baseweb="select"] [aria-selected] {
+            color:var(--lv-text)!important; -webkit-text-fill-color:var(--lv-text)!important;
+            caret-color:var(--lv-text)!important;
+        }
+        .stApp input::placeholder,.stApp textarea::placeholder {
+            color:var(--lv-muted)!important; -webkit-text-fill-color:var(--lv-muted)!important;
+            opacity:1!important;
+        }
+        div[data-baseweb="input"] svg {
+            color:var(--lv-text)!important; fill:none!important;
+            stroke:var(--lv-text)!important; opacity:.8!important;
+        }
+        div[data-baseweb="input"] svg path,div[data-baseweb="input"] svg circle {
+            stroke:var(--lv-text)!important;
+        }
+        div[data-baseweb="select"] svg { fill:var(--lv-muted)!important; color:var(--lv-muted)!important; }
         .stButton > button,.stDownloadButton > button,div[data-testid="stFormSubmitButton"] > button { min-height:2.55rem; border-color:var(--lv-border); border-radius:.75rem; background:rgba(17,24,42,.82); transition:border-color 140ms ease,background 140ms ease,transform 140ms ease; }
         .stButton > button:hover,.stDownloadButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover { border-color:var(--lv-strong); background:var(--lv-soft); color:#f5f3ff; transform:translateY(-1px); }
         button[kind="primary"] { border-color:transparent!important; background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important; color:white!important; }
         div[data-testid="stImage"] img { border-radius:.8rem; }
+        div[data-testid="stCustomComponentV1"] iframe {
+            border-radius:.8rem!important;
+            clip-path:inset(0 round .8rem);
+        }
+        div[data-testid="stColumn"]:has(.lv-thumbnail-shell) { position:relative; }
+        div[data-testid="stColumn"]:has(.lv-thumbnail-shell) > div[data-testid="stVerticalBlock"] { gap:.3rem!important; }
+        div[data-testid="stElementContainer"]:has(.lv-thumbnail-shell),
+        div[data-testid="stElementContainer"]:has(.lv-favorite-overlay) { display:none!important; }
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) {
+            position:absolute!important; top:.45rem; left:.45rem; right:.45rem;
+            z-index:5; width:auto!important; align-items:start!important;
+            opacity:0; transition:opacity 120ms ease;
+        }
+        div[data-testid="stColumn"]:has(.lv-thumbnail-shell):hover div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)),
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)):has(button[data-testid="stBaseButton-primary"]) {
+            opacity:1;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) .stButton > button {
+            width:2rem!important; min-width:2rem!important; height:2rem!important; min-height:2rem!important;
+            padding:0!important; border:0!important; border-radius:0!important;
+            background:transparent!important; color:#f8fafc!important;
+            box-shadow:none!important; transform:none!important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) div[data-testid="stColumn"]:has(.lv-favorite-active) .stButton > button {
+            color:#fb4b68!important;
+        }
+        .lv-card-tags { display:flex; flex-wrap:wrap; gap:.3rem; height:1.45rem; margin:.15rem 0 .3rem; overflow:hidden; }
+        .lv-tag { flex:0 0 auto; padding:.12rem .48rem; border:1px solid transparent; border-radius:999px; font-size:.68rem; line-height:1.1rem; }
+        .lv-tag-0 { color:#93c5fd; background:rgba(37,99,235,.18); border-color:rgba(96,165,250,.22); }
+        .lv-tag-1 { color:#6ee7b7; background:rgba(5,150,105,.18); border-color:rgba(52,211,153,.22); }
+        .lv-tag-2 { color:#fcd34d; background:rgba(217,119,6,.18); border-color:rgba(251,191,36,.22); }
+        .lv-tag-3 { color:#d8b4fe; background:rgba(147,51,234,.18); border-color:rgba(192,132,252,.22); }
+        .lv-tag-4 { color:#fda4af; background:rgba(225,29,72,.18); border-color:rgba(251,113,133,.22); }
+        .lv-tag-5 { color:#67e8f9; background:rgba(8,145,178,.18); border-color:rgba(34,211,238,.22); }
+        .lv-card-facts { display:flex; align-items:center; gap:.35rem; margin-bottom:1.5rem; color:var(--lv-muted); font-size:.7rem; white-space:nowrap; }
         div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(17,24,42,.5); }
         div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
         div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(17,24,42,.66); }
@@ -104,19 +161,37 @@ def apply_app_styles(theme: str = "dark") -> None:
         }
         div[data-testid="stPopover"] button svg { display:none!important; }
         div[data-testid="stPopoverBody"] {
-            width:6.75rem!important; min-width:6.75rem!important; max-width:6.75rem!important;
+            width:8.75rem!important; min-width:8.75rem!important; max-width:8.75rem!important;
             margin-top:-.4rem!important; margin-right:0!important; margin-bottom:0!important;
             padding:.4rem!important; border-radius:.65rem!important;
         }
         div[data-testid="stPopoverBody"] div[data-testid="stHorizontalBlock"] {
-            gap:.35rem!important;
+            gap:.35rem!important; align-items:center!important;
         }
+
         div[data-testid="stPopoverBody"] .stButton > button,
-        div[data-testid="stPopoverBody"] .stDownloadButton > button {
+        div[data-testid="stPopoverBody"] .stDownloadButton > button,
+        div[data-testid="stPopoverBody"] .stButton > button:hover,
+        div[data-testid="stPopoverBody"] .stDownloadButton > button:hover,
+        div[data-testid="stPopoverBody"] .stButton > button:focus-visible,
+        div[data-testid="stPopoverBody"] .stDownloadButton > button:focus-visible,
+        div[data-testid="stPopoverBody"] .stButton > button:active,
+        div[data-testid="stPopoverBody"] .stDownloadButton > button:active {
             padding:0!important; min-width:2.5rem!important;
+            border:0!important; background:transparent!important; outline:0!important; box-shadow:none!important; transform:none!important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button,
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:hover,
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:focus-visible,
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:active {
+            border:0!important; background:transparent!important;
+            box-shadow:none!important; outline:0!important; transform:none!important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) button[data-testid="stBaseButton-primary"] {
+            color:#ff3b5c!important;
         }
         button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
-        div[data-baseweb="input"] > div,div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
+        div[data-baseweb="input"],div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
         .lv-gallery-transition { display:none; }
         @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }
         @keyframes lv-gallery-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
@@ -128,6 +203,11 @@ def apply_app_styles(theme: str = "dark") -> None:
         div[data-testid="stElementContainer"]:has(.lv-gallery-in) ~ * {
             animation:lv-gallery-in 180ms ease-out both;
             will-change:opacity,transform;
+        }
+        div[data-testid="stElementContainer"]:has(.lv-pagination) { display:none!important; }
+        div[data-testid="stHorizontalBlock"]:has(.lv-pagination) {
+            width:100%!important; max-width:20rem!important; margin:1.25rem auto 0!important;
+            align-items:center!important; gap:.45rem!important;
         }
         @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
         @media (max-width:700px) {
