@@ -87,7 +87,6 @@ class LunaVaultUI:
             "view_page": 0,
             "pending_view_delete": None,
             "pending_view_hide": None,
-            "view_delete_notice": None,
             "download_generation": 0,
             "download_page": 0,
             "download_selection": set(),

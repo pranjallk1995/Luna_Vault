@@ -38,10 +38,7 @@ class ViewPage(LunaVaultUI):
                 retained_uploads.append(image)
         st.session_state.uploaded_images = retained_uploads
         st.session_state.pending_view_delete = None
-        st.session_state.view_delete_notice = (
-            "success",
-            f"Deleted {self.display_name(image_path.name)}.",
-        )
+
         st.session_state.view_generation += 1
         st.session_state.download_generation += 1
 
@@ -242,11 +239,6 @@ class ViewPage(LunaVaultUI):
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         """Render the view page interface."""
-        notice = st.session_state.view_delete_notice
-        if notice:
-            st.session_state.view_delete_notice = None
-            level, message = notice
-            getattr(st, level)(message)
 
         if not vault_images:
             st.session_state.view_page = 0

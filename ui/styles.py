@@ -34,8 +34,8 @@ def apply_app_styles(theme: str = "dark") -> None:
         div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button { white-space:nowrap; }
         header[data-testid="stHeader"] { background:transparent; }
         #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
-        .lv-header { display:flex; align-items:center; gap:.9rem; margin-bottom:1rem; }
-        .lv-mark { display:block; width:2.65rem; height:2.65rem; border:1px solid var(--lv-strong); border-radius:.85rem; object-fit:cover; box-shadow:0 12px 34px rgba(0,0,0,.22); }
+        .lv-header { display:flex; align-items:center; gap:1rem; min-height:4.5rem; margin-bottom:1rem; }
+        .lv-mark { display:block; flex:0 0 5.75rem; width:5.75rem; height:4.5rem; border:0; border-radius:0; object-fit:contain; object-position:center; box-shadow:none; }
         .lv-title { margin:0; color:var(--lv-text); font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
         .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
         div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
