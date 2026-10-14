@@ -14,15 +14,12 @@ def apply_app_styles(theme: str = "dark") -> None:
         "--lv-border:rgba(71,85,105,.20);--lv-strong:rgba(99,102,241,.48);"
         "--lv-accent:#6366f1;--lv-soft:rgba(99,102,241,.12);"
         if theme == "light"
-        else
-        "--lv-bg:#111111;--lv-surface:rgba(255,255,255,.055);--lv-control:rgba(255,255,255,.07);"
+        else "--lv-bg:#111111;--lv-surface:rgba(255,255,255,.055);--lv-control:rgba(255,255,255,.07);"
         "--lv-control-hover:rgba(255,255,255,.12);--lv-text:#f5f5f5;--lv-muted:#a3a3a3;"
         "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
         "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
     )
-    st.markdown(
-        f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True
-    )
+    st.markdown(f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True)
     st.markdown(
         """
         <style>
@@ -213,8 +210,7 @@ def apply_app_styles(theme: str = "dark") -> None:
         div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(255,255,255,.055); }
         /* Shared control system: native, icon, form, and download buttons. */
         .stButton > button,.stDownloadButton > button,
-        div[data-testid="stFormSubmitButton"] > button,
-        button[data-testid^="stBaseButton"] {
+        div[data-testid="stFormSubmitButton"] > button {
             min-height:2.625rem!important; height:2.625rem;
             padding:.45rem .9rem!important; border:1px solid var(--lv-border)!important;
             border-radius:.5rem!important; background:var(--lv-control)!important;
@@ -222,13 +218,11 @@ def apply_app_styles(theme: str = "dark") -> None:
             box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
         }
         .stButton > button:hover,.stDownloadButton > button:hover,
-        div[data-testid="stFormSubmitButton"] > button:hover,
-        button[data-testid^="stBaseButton"]:hover {
+        div[data-testid="stFormSubmitButton"] > button:hover {
             border-color:var(--lv-strong)!important; background:var(--lv-control-hover)!important;
             color:var(--lv-text)!important; transform:translateY(-1px);
         }
-        .stButton > button:focus-visible,.stDownloadButton > button:focus-visible,
-        button[data-testid^="stBaseButton"]:focus-visible {
+        .stButton > button:focus-visible,.stDownloadButton > button:focus-visible {
             outline:2px solid var(--lv-accent)!important; outline-offset:2px;
         }
         button[data-testid="stBaseButton-primary"],button[kind="primary"] {
@@ -333,7 +327,7 @@ def render_app_header(logo_path: Path) -> None:
             <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Vault logo">
             <div>
                 <h1 class="lv-title">Luna Vault</h1>
-                <p class="lv-subtitle">Private, AI-organized image storage</p>
+                <p class="lv-subtitle">Private AI-managed image storage</p>
             </div>
         </div>
         """,
