@@ -376,6 +376,25 @@ class LunaVaultMCP:
             except Exception as error:
                 return self._error(error)
 
+        @self.mcp.custom_route("/api/images/{name}/metadata", methods=["POST"])
+        async def update_metadata_route(request: Request) -> JSONResponse:
+            """Edit one visible image caption and searchable tags from the UI."""
+            try:
+                payload = await self._payload(request)
+                return JSONResponse(
+                    {
+                        "status": "metadata_updated",
+                        **vault.update_metadata(
+                            request.path_params["name"],
+                            payload.get("caption"),
+                            payload.get("add_tags"),
+                            payload.get("remove_tags"),
+                        ),
+                    }
+                )
+            except Exception as error:
+                return self._error(error)
+
         @self.mcp.custom_route("/api/favorites", methods=["GET"])
         async def favorites_route(request: Request) -> JSONResponse:
             """Return persisted visible favorites to the UI."""

@@ -58,6 +58,30 @@ class ViewPage(LunaVaultUI):
         st.session_state.add_favorite_generation += 1
         st.session_state.view_generation += 1
 
+    def update_image_metadata(
+        self,
+        image_path: Path,
+        caption: str | None = None,
+        add_tags: list[str] | None = None,
+        remove_tags: list[str] | None = None,
+    ) -> dict:
+        """Persist an edited caption or tag changes for one visible image."""
+        payload = {}
+        if caption is not None:
+            payload["caption"] = caption
+        if add_tags is not None:
+            payload["add_tags"] = add_tags
+        if remove_tags is not None:
+            payload["remove_tags"] = remove_tags
+        response = httpx.post(
+            f"{self.config.api_url}/api/images/{image_path.name}/metadata",
+            json=payload,
+            headers=self.config.api_headers,
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return response.json()
+
     @st.fragment
     def render_favorite_overlay(
         self,
@@ -67,9 +91,7 @@ class ViewPage(LunaVaultUI):
         key_prefix: str,
     ) -> None:
         """Overlay the Favorite toggle at the thumbnail's top-right corner."""
-        st.markdown(
-            '<span class="lv-thumbnail-shell"></span>', unsafe_allow_html=True
-        )
+        st.markdown('<span class="lv-thumbnail-shell"></span>', unsafe_allow_html=True)
         spacer_column, favorite_column = st.columns([6, 1])
         del spacer_column
         state_key = f"{key_prefix}_favorite_state_{image_path.name}"
@@ -137,6 +159,7 @@ class ViewPage(LunaVaultUI):
                 st.session_state.pending_view_delete = None
                 st.session_state.pending_view_hide = image_path.name
                 st.rerun()
+
     def render_image_details(
         self, container, image_path: Path, metadata: dict | None
     ) -> None:
@@ -159,9 +182,10 @@ class ViewPage(LunaVaultUI):
         container.markdown(
             f'<div class="lv-card-tags">{tag_html}</div>'
             f'<div class="lv-card-facts"><span>{size_label}</span>'
-            f'<span>·</span><span>{width} × {height}</span></div>',
+            f"<span>·</span><span>{width} × {height}</span></div>",
             unsafe_allow_html=True,
         )
+
     def render_list(
         self,
         images: list[Path],
@@ -206,14 +230,13 @@ class ViewPage(LunaVaultUI):
                     [8, 1], vertical_alignment="center"
                 )
                 self.render_image_name(name_column, image_path.name)
-                self.render_image_menu(
-                    menu_column, image_path, generation, "view_list"
-                )
+                self.render_image_menu(menu_column, image_path, generation, "view_list")
                 metadata = metadata_by_name.get(image_path.name)
                 self.render_image_details(detail_column, image_path, metadata)
                 if clicked_indices:
                     opened_image = image_path
         return opened_image
+
     def render(
         self, vault_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
@@ -241,9 +264,7 @@ class ViewPage(LunaVaultUI):
             timeout=10.0,
         )
         favorite_response.raise_for_status()
-        favorite_names = {
-            item["name"] for item in favorite_response.json()["images"]
-        }
+        favorite_names = {item["name"] for item in favorite_response.json()["images"]}
         generation = st.session_state.view_generation
         columns_per_row = self.gallery_column_count()
         current_page, page_images = self.paginated_images(
@@ -262,9 +283,7 @@ class ViewPage(LunaVaultUI):
         ):
             row_images = page_images[row_start : row_start + columns_per_row]
             columns = st.columns(columns_per_row)
-            for item_index, (column, image_path) in enumerate(
-                zip(columns, row_images)
-            ):
+            for item_index, (column, image_path) in enumerate(zip(columns, row_images)):
                 with column:
                     clicked_indices = (
                         st_img_selector(
@@ -294,9 +313,7 @@ class ViewPage(LunaVaultUI):
                     [8, 1], vertical_alignment="center"
                 )
                 self.render_image_name(name_column, image_path.name)
-                self.render_image_menu(
-                    menu_column, image_path, generation, "view_grid"
-                )
+                self.render_image_menu(menu_column, image_path, generation, "view_grid")
                 metadata = metadata_by_name.get(image_path.name)
                 self.render_image_details(column, image_path, metadata)
                 if clicked_indices and clicked_image is None:
@@ -381,8 +398,215 @@ class ViewPage(LunaVaultUI):
 
             @st.dialog(self.display_name(clicked_image.name), width="large")
             def show_full_size_image() -> None:
-                """Render the selected image at full size."""
+                """Render the selected image with its stored descriptive metadata."""
                 st.image(clicked_image, width="stretch")
+                metadata = metadata_by_name.get(clicked_image.name) or {}
+                caption_value = str(metadata.get("caption") or "")
+                tags = list(metadata.get("tags") or [])
+                caption_state = f"preview_caption_edit_{clicked_image.name}"
+                tag_state = f"preview_tag_add_{clicked_image.name}"
+                caption_error_state = f"{caption_state}_error"
+                tag_error_state = f"{tag_state}_error"
+                tag_pills_generation_state = (
+                    f"preview_tag_pills_generation_{clicked_image.name}"
+                )
+                if tag_pills_generation_state not in st.session_state:
+                    st.session_state[tag_pills_generation_state] = 0
+                tag_selection_key = (
+                    f"preview_tag_pills_{clicked_image.name}_"
+                    f"{st.session_state[tag_pills_generation_state]}"
+                )
+
+                def save_caption_inline() -> None:
+                    """Save the inline caption field from Enter or the checkmark."""
+                    try:
+                        updated = self.update_image_metadata(
+                            clicked_image,
+                            caption=st.session_state.get(f"{caption_state}_draft", ""),
+                        )
+                        metadata_by_name[clicked_image.name] = updated
+                        st.session_state[caption_state] = False
+                        st.session_state[caption_error_state] = None
+                    except httpx.HTTPError as error:
+                        st.session_state[caption_error_state] = (
+                            f"Could not update description: {error}"
+                        )
+
+                def save_tag_inline() -> None:
+                    """Save the inline tag field from Enter or the checkmark."""
+                    new_tag = st.session_state.get(f"{tag_state}_draft", "").strip()
+                    if not new_tag:
+                        st.session_state[tag_error_state] = "Enter a tag name."
+                        return
+                    try:
+                        updated = self.update_image_metadata(
+                            clicked_image, add_tags=[new_tag]
+                        )
+                        metadata_by_name[clicked_image.name] = updated
+                        st.session_state[tag_state] = False
+                        st.session_state[tag_error_state] = None
+                        st.session_state[tag_pills_generation_state] += 1
+                    except httpx.HTTPError as error:
+                        st.session_state[tag_error_state] = (
+                            f"Could not add tag: {error}"
+                        )
+
+                def remove_deselected_tags() -> None:
+                    """Remove tags deselected from the interactive tag pills."""
+                    selected_tags = st.session_state.get(tag_selection_key) or []
+                    removed_tags = [tag for tag in tags if tag not in selected_tags]
+                    if not removed_tags:
+                        return
+                    try:
+                        updated = self.update_image_metadata(
+                            clicked_image,
+                            remove_tags=removed_tags,
+                        )
+                        metadata_by_name[clicked_image.name] = updated
+                        st.session_state[tag_error_state] = None
+                    except httpx.HTTPError as error:
+                        st.session_state[tag_error_state] = (
+                            f"Could not remove tag: {error}"
+                        )
+                    finally:
+                        st.session_state[tag_pills_generation_state] += 1
+
+                caption_box = st.container()
+                caption_box.markdown(
+                    '<span class="lv-preview-details"></span>',
+                    unsafe_allow_html=True,
+                )
+                caption_icon, caption_column, edit_column = caption_box.columns(
+                    [0.6, 18.4, 1], vertical_alignment="center"
+                )
+                caption_icon.markdown(
+                    '<span class="lv-preview-static-icon"></span>',
+                    unsafe_allow_html=True,
+                )
+                caption_icon.button(
+                    ":material/closed_caption:",
+                    disabled=True,
+                    key=f"caption_icon_{clicked_image.name}",
+                    width="stretch",
+                )
+                if st.session_state.get(caption_state, False):
+                    caption_column.text_input(
+                        "Description",
+                        key=f"{caption_state}_draft",
+                        max_chars=500,
+                        label_visibility="collapsed",
+                        on_change=save_caption_inline,
+                    )
+                    edit_column.button(
+                        ":material/check:",
+                        key=f"save_{caption_state}",
+                        width="stretch",
+                        on_click=save_caption_inline,
+                    )
+                    if st.session_state.get(caption_error_state):
+                        caption_box.error(st.session_state[caption_error_state])
+                else:
+                    caption_column.markdown(
+                        f'<div class="lv-preview-caption">{html.escape(caption_value)}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if edit_column.button(
+                        ":material/edit:",
+                        key=f"open_{caption_state}",
+                        width="stretch",
+                    ):
+                        st.session_state[caption_state] = True
+                        st.session_state[f"{caption_state}_draft"] = caption_value
+                        st.rerun(scope="fragment")
+
+                tags_box = st.container()
+                tags_box.markdown(
+                    '<span class="lv-preview-details"></span>',
+                    unsafe_allow_html=True,
+                )
+                tags_icon, tags_title = tags_box.columns(
+                    [0.6, 20.4], vertical_alignment="center"
+                )
+                tags_icon.markdown(
+                    '<span class="lv-preview-static-icon"></span>',
+                    unsafe_allow_html=True,
+                )
+                tags_icon.button(
+                    ":material/style:",
+                    disabled=True,
+                    key=f"tags_icon_{clicked_image.name}",
+                    width="stretch",
+                )
+
+                if st.session_state.get(tag_state, False):
+                    tags_column, input_column, add_tag_column = tags_box.columns(
+                        [12, 7, 1], vertical_alignment="center"
+                    )
+                    if tags:
+                        tags_column.markdown(
+                            '<span class="lv-preview-removable-tags"></span>',
+                            unsafe_allow_html=True,
+                        )
+                        tags_column.pills(
+                            "Tags",
+                            options=tags,
+                            default=tags,
+                            selection_mode="multi",
+                            key=tag_selection_key,
+                            on_change=remove_deselected_tags,
+                            label_visibility="collapsed",
+                            width="stretch",
+                        )
+                    input_column.text_input(
+                        "New tag",
+                        key=f"{tag_state}_draft",
+                        placeholder="Tag name",
+                        label_visibility="collapsed",
+                        on_change=save_tag_inline,
+                    )
+                    add_tag_column.markdown(
+                        '<span class="lv-preview-icon-action"></span>',
+                        unsafe_allow_html=True,
+                    )
+                    add_tag_column.button(
+                        ":material/check:",
+                        key=f"save_{tag_state}",
+                        width="stretch",
+                        on_click=save_tag_inline,
+                    )
+                    if st.session_state.get(tag_error_state):
+                        tags_box.error(st.session_state[tag_error_state])
+                else:
+                    tags_column, add_tag_column = tags_box.columns(
+                        [20, 1], vertical_alignment="center"
+                    )
+                    if tags:
+                        tags_column.markdown(
+                            '<span class="lv-preview-removable-tags"></span>',
+                            unsafe_allow_html=True,
+                        )
+                        tags_column.pills(
+                            "Tags",
+                            options=tags,
+                            default=tags,
+                            selection_mode="multi",
+                            key=tag_selection_key,
+                            on_change=remove_deselected_tags,
+                            label_visibility="collapsed",
+                            width="stretch",
+                        )
+                    add_tag_column.markdown(
+                        '<span class="lv-preview-icon-action"></span>',
+                        unsafe_allow_html=True,
+                    )
+                    if add_tag_column.button(
+                        ":material/add:",
+                        key=f"open_{tag_state}",
+                        width="stretch",
+                    ):
+                        st.session_state[tag_state] = True
+                        st.session_state[f"{tag_state}_draft"] = ""
+                        st.rerun(scope="fragment")
 
             show_full_size_image()
 

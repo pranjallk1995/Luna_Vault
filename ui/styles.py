@@ -112,7 +112,7 @@ def apply_app_styles(theme: str = "dark") -> None:
         div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) div[data-testid="stColumn"]:has(.lv-favorite-active) .stButton > button {
             color:#fb4b68!important;
         }
-        .lv-card-tags { display:flex; flex-wrap:wrap; gap:.3rem; height:1.45rem; margin:.15rem 0 .3rem; overflow:hidden; }
+        .lv-card-tags { display:flex; align-items:flex-start; flex-wrap:wrap; gap:.3rem; height:1.7rem; padding:.05rem 0 .15rem; margin:.1rem 0 .3rem; overflow:hidden; }
         .lv-tag { flex:0 0 auto; padding:.12rem .48rem; border:1px solid transparent; border-radius:999px; font-size:.68rem; line-height:1.1rem; }
         .lv-tag-0 { color:#93c5fd; background:rgba(37,99,235,.18); border-color:rgba(96,165,250,.22); }
         .lv-tag-1 { color:#6ee7b7; background:rgba(5,150,105,.18); border-color:rgba(52,211,153,.22); }
@@ -121,6 +121,79 @@ def apply_app_styles(theme: str = "dark") -> None:
         .lv-tag-4 { color:#fda4af; background:rgba(225,29,72,.18); border-color:rgba(251,113,133,.22); }
         .lv-tag-5 { color:#67e8f9; background:rgba(8,145,178,.18); border-color:rgba(34,211,238,.22); }
         .lv-card-facts { display:flex; align-items:center; gap:.35rem; margin-bottom:1.5rem; color:var(--lv-muted); font-size:.7rem; white-space:nowrap; }
+        div[data-testid="stElementContainer"]:has(.lv-preview-details) { display:none!important; }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details),
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) > div {
+            border:0!important; border-radius:0!important;
+            background:transparent!important; box-shadow:none!important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) > div { padding:.65rem!important; }
+        .lv-preview-caption {
+            display:flex; align-items:center; min-height:1.35rem;
+            margin:0; color:var(--lv-text); line-height:1.35rem;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.lv-preview-static-icon) {
+            align-items:center!important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.lv-preview-static-icon) > div[data-testid="stColumn"] {
+            display:flex!important; align-items:center!important;
+        }
+        .lv-preview-section-icon { display:inline-flex; align-items:center; margin-right:.55rem; color:var(--lv-muted); font-size:1.15rem; vertical-align:middle; }
+        .lv-preview-heading { display:flex; align-items:center; color:var(--lv-muted); font-size:.95rem; }
+        .lv-preview-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin:0; padding:0 0 .45rem; }
+        div[data-testid="stElementContainer"]:has(.lv-preview-removable-tags) { display:none!important; }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"],
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) [data-baseweb="button-group"] {
+            padding:0!important; border:0!important; border-radius:0!important;
+            background:transparent!important; box-shadow:none!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button {
+            position:relative; min-height:1.55rem!important; padding:.12rem .48rem!important;
+            border-radius:999px!important; font-size:.68rem!important; line-height:1.1rem!important;
+            overflow:visible; box-shadow:none!important;
+            transition:border-color .15s ease, background-color .15s ease;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+1) {
+            color:#93c5fd!important; background:rgba(37,99,235,.18)!important; border-color:rgba(96,165,250,.35)!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+2) {
+            color:#6ee7b7!important; background:rgba(5,150,105,.18)!important; border-color:rgba(52,211,153,.35)!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+3) {
+            color:#fcd34d!important; background:rgba(217,119,6,.18)!important; border-color:rgba(251,191,36,.35)!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+4) {
+            color:#d8b4fe!important; background:rgba(147,51,234,.18)!important; border-color:rgba(192,132,252,.35)!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+5) {
+            color:#fda4af!important; background:rgba(225,29,72,.18)!important; border-color:rgba(251,113,133,.35)!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+6) {
+            color:#67e8f9!important; background:rgba(8,145,178,.18)!important; border-color:rgba(34,211,238,.35)!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button::after {
+            content:"×"; display:inline-block; width:0; margin-left:0; overflow:hidden;
+            color:currentColor; opacity:0; transition:width .15s ease, margin-left .15s ease, opacity .15s ease;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:hover::after {
+            width:.7rem; margin-left:.2rem; opacity:1;
+        }
+        div[data-testid="stElementContainer"]:has(.lv-preview-icon-action),
+        div[data-testid="stElementContainer"]:has(.lv-preview-static-icon) { display:none!important; }
+        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button,
+        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:hover,
+        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:focus-visible,
+        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:active {
+            width:2rem!important; min-width:2rem!important; height:2rem!important; min-height:2rem!important;
+            padding:0!important; border:0!important; border-radius:0!important;
+            background:transparent!important; box-shadow:none!important; outline:0!important; transform:none!important;
+        }
+        div[data-testid="stColumn"]:has(.lv-preview-static-icon) .stButton > button:disabled {
+            width:1.35rem!important; min-width:1.35rem!important;
+            height:1.35rem!important; min-height:1.35rem!important;
+            color:var(--lv-muted)!important; opacity:1!important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) { margin-top:.45rem; }
         div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(17,24,42,.5); }
         div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
         div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(17,24,42,.66); }

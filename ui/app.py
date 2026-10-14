@@ -25,12 +25,6 @@ def set_gallery_view(mode: str) -> None:
     st.session_state.gallery_view_mode = mode
 
 
-def toggle_color_theme() -> None:
-    """Toggle the application between its dark and light palettes."""
-    st.session_state.color_theme = (
-        "light" if st.session_state.color_theme == "dark" else "dark"
-    )
-
 
 def source_revision() -> str:
     """Return a stable digest of the UI source currently loaded by Streamlit."""
@@ -76,21 +70,8 @@ def main() -> None:
     with brand_column:
         render_app_header(LOGO_PATH)
     with controls_column:
-        theme_column, grid_column, list_column, upload_column = st.columns(
-            [1, 1, 1, 3], vertical_alignment="center", gap="small"
-        )
-        theme_column.button(
-            ":material/light_mode:"
-            if st.session_state.color_theme == "dark"
-            else ":material/dark_mode:",
-            help=(
-                "Use light theme"
-                if st.session_state.color_theme == "dark"
-                else "Use dark theme"
-            ),
-            key="toggle_color_theme",
-            on_click=toggle_color_theme,
-            width="stretch",
+        grid_column, list_column, upload_column = st.columns(
+            [1, 1, 3], vertical_alignment="center", gap="small"
         )
         grid_column.button(
             ":material/grid_view:",
@@ -126,7 +107,9 @@ def main() -> None:
     if open_upload:
         upload_dialog()
 
-    if shared_ui.gallery_column_count() == 1:
+    user_agent = st.context.headers.get("User-Agent", "")
+    compact_navigation = shared_ui._is_mobile_user_agent(user_agent)
+    if compact_navigation:
         tab_labels = [
             ":material/visibility:",
             ":material/star:",
@@ -143,12 +126,17 @@ def main() -> None:
     selected_tab = st.segmented_control(
         "Gallery section",
         tab_keys,
-        default="view",
+        default=st.session_state.get("active_gallery_section", "view"),
         format_func=label_by_key.__getitem__,
-        key="gallery_section",
+        key=(
+            "gallery_section_compact"
+            if compact_navigation
+            else "gallery_section_full"
+        ),
         label_visibility="collapsed",
         width="stretch",
     )
+    st.session_state.active_gallery_section = selected_tab
 
     metadata_response = httpx.get(
         f"{config.api_url}/api/metadata",

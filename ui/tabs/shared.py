@@ -61,9 +61,10 @@ class LunaVaultUI:
 
     def gallery_search_placeholder(self) -> str:
         """Use a compact search hint on mobile displays."""
+        user_agent = st.context.headers.get("User-Agent", "")
         return (
             "Filename"
-            if self.gallery_column_count() == 1
+            if self._is_mobile_user_agent(user_agent)
             else "Type part of a filename"
         )
 
