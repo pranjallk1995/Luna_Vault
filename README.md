@@ -8,6 +8,8 @@
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
 ## Generate, Manipulate, Search and Store images of your choice using LLMs.
 
+> **Work in progress:** Luna Vault is a local-first image store and search under active development.
+
 Luna Vault is an AI-powered, private image library that runs locally. Its Ollama
 vision model analyzes every upload automatically, creates a concise caption and
 searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the indexed
