@@ -304,6 +304,10 @@ def apply_app_styles(theme: str = "dark") -> None:
         @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
         @media (max-width:700px) {
             .block-container { padding:.85rem .8rem 2rem; }
+            .lv-header { flex-wrap:nowrap!important; gap:.65rem; min-width:0; }
+            .lv-header > div { min-width:0; }
+            .lv-mark { flex:0 0 4rem; width:4rem; height:3.4rem; }
+            .lv-title { white-space:nowrap; font-size:clamp(1.55rem,8vw,1.85rem); }
             div[data-testid="stHorizontalBlock"]:has(.lv-header) { flex-wrap:wrap!important; }
             div[data-testid="stHorizontalBlock"]:has(.lv-header) > div[data-testid="stColumn"] { flex:1 1 100%!important; width:100%!important; }
             .lv-subtitle { display:none; }
