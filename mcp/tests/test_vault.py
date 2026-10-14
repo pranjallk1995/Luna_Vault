@@ -53,9 +53,12 @@ class FakeRepository:
         self.rows[new_name] = row
         return row
 
-    def update_metadata(self, name, caption, tags):
-        """Update caption and tags in the test repository."""
-        if name not in self.rows or self.rows[name].get("hidden", False):
+    def update_metadata(self, name, caption, tags, hidden=False):
+        """Update caption and tags in the requested test collection."""
+        if (
+            name not in self.rows
+            or self.rows[name].get("hidden", False) != hidden
+        ):
             raise FileNotFoundError(name)
         self.rows[name]["caption"] = caption
         self.rows[name]["tags"] = tags
@@ -282,6 +285,17 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.service.set_hidden(["cat.png"], True)
         with self.assertRaises(PermissionError):
             self.service.update_metadata("cat.png", add_tags=["private"])
+
+    def test_update_hidden_metadata_changes_caption_and_tags(self):
+        """Verify authenticated hidden metadata can be edited explicitly."""
+        self.service.ingest_base64("cat.png", png_payload())
+        self.service.set_hidden(["cat.png"], True)
+        result = self.service.update_hidden_metadata(
+            "cat.png", caption="A private indoor cat.", add_tags=["Private"]
+        )
+        self.assertEqual(result["caption"], "A private indoor cat.")
+        self.assertEqual(result["tags"], ["cat", "sofa", "private"])
+        self.assertTrue(result["hidden"])
 
     def test_authenticated_hidden_remove_deletes_file_and_metadata(self):
         """Verify authenticated hidden remove deletes file and metadata."""

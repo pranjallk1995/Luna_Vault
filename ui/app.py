@@ -9,7 +9,7 @@ import httpx
 import streamlit as st
 
 from config import UIConfig
-from styles import apply_app_styles, render_app_header, render_section_intro
+from styles import apply_app_styles, render_app_header
 from tabs.hidden_page import HiddenPage
 from tabs.favorites_page import FavoritesPage
 from tabs.shared import LunaVaultUI
@@ -18,6 +18,12 @@ from tabs.view_page import ViewImagesPage
 
 
 LOGO_PATH = Path(__file__).resolve().parent / "assets" / "luna-vault-logo.png"
+
+
+def set_gallery_view(mode: str) -> None:
+    """Switch every gallery between grid and list presentation."""
+    st.session_state.gallery_view_mode = mode
+
 
 
 def source_revision() -> str:
@@ -56,24 +62,85 @@ def main() -> None:
     shared_ui = LunaVaultUI(config)
     shared_ui.initialize_state()
     show_reload_notice()
-    apply_app_styles()
-    render_app_header(LOGO_PATH)
+    apply_app_styles(st.session_state.color_theme)
 
-    if shared_ui.gallery_column_count() == 1:
+    brand_column, controls_column = st.columns(
+        [5, 4], vertical_alignment="center", gap="medium"
+    )
+    with brand_column:
+        render_app_header(LOGO_PATH)
+    with controls_column:
+        grid_column, list_column, upload_column = st.columns(
+            [1, 1, 3], vertical_alignment="center", gap="small"
+        )
+        grid_column.button(
+            ":material/grid_view:",
+            help="Grid view",
+            type="primary" if st.session_state.gallery_view_mode == "grid" else "secondary",
+            key="use_grid_view",
+            on_click=set_gallery_view,
+            args=("grid",),
+            width="stretch",
+        )
+        list_column.button(
+            ":material/view_list:",
+            help="List view",
+            type="primary" if st.session_state.gallery_view_mode == "list" else "secondary",
+            key="use_list_view",
+            on_click=set_gallery_view,
+            args=("list",),
+            width="stretch",
+        )
+        open_upload = upload_column.button(
+            "Upload Images",
+            icon=":material/upload:",
+            type="primary",
+            key="open_upload_dialog",
+            width="stretch",
+        )
+
+    @st.dialog("Upload images", width="large")
+    def upload_dialog() -> None:
+        """Show the existing drag-and-drop uploader in a modal window."""
+        UploadPage(config).render()
+
+    if open_upload:
+        upload_dialog()
+
+    user_agent = st.context.headers.get("User-Agent", "")
+    compact_navigation = shared_ui._is_mobile_user_agent(user_agent)
+    if compact_navigation:
         tab_labels = [
-            ":material/upload:",
             ":material/visibility:",
             ":material/star:",
             ":material/lock:",
         ]
     else:
         tab_labels = [
-            ":material/upload: Upload Images",
             ":material/visibility: View Images",
             ":material/star: Favorite Images",
             ":material/lock: Hidden Images",
         ]
-    upload_tab, view_tab, favorites_tab, hidden_tab = st.tabs(tab_labels)
+    tab_keys = ["view", "favorites", "hidden"]
+    label_by_key = dict(zip(tab_keys, tab_labels))
+    navigation_container = st.container(key="gallery_navigation")
+    selected_tab = navigation_container.segmented_control(
+        "Gallery section",
+        tab_keys,
+        default=st.session_state.get("active_gallery_section", "view"),
+        format_func=label_by_key.__getitem__,
+        key=(
+            "gallery_section_compact"
+            if compact_navigation
+            else "gallery_section_full"
+        ),
+        label_visibility="collapsed",
+        width="stretch",
+    )
+    if selected_tab is None:
+        selected_tab = st.session_state.active_gallery_section
+    else:
+        st.session_state.active_gallery_section = selected_tab
 
     metadata_response = httpx.get(
         f"{config.api_url}/api/metadata",
@@ -89,34 +156,13 @@ def main() -> None:
         if path.name in metadata_by_name
     ]
 
-    with upload_tab:
-        render_section_intro(
-            "Ingest",
-            "Add images",
-            "Upload one or many images and let Luna Vault generate searchable details.",
-        )
-        UploadPage(config).render()
-    with view_tab:
-        render_section_intro(
-            "Library",
-            "Browse your vault",
-            "Find, inspect, download, or remove images from your private collection.",
-        )
+
+    if selected_tab == "view":
         ViewImagesPage(config).render(vault_images, metadata_by_name)
-    with favorites_tab:
-        render_section_intro(
-            "Curated",
-            "Your favorites",
-            "Keep the images you return to most in one focused collection.",
-        )
-        FavoritesPage(config).render(vault_images)
-    with hidden_tab:
-        render_section_intro(
-            "Protected space",
-            "Hidden vault",
-            "Keep sensitive images behind a separate password-protected view.",
-        )
-        HiddenPage(config).render(vault_images)
+    elif selected_tab == "favorites":
+        FavoritesPage(config).render(vault_images, metadata_by_name)
+    else:
+        HiddenPage(config).render(vault_images, metadata_by_name)
 
 
 if __name__ == "__main__":

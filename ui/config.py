@@ -14,12 +14,12 @@ class UIConfig:
     api_url: str
     card_size: tuple[int, int] = (420, 248)
     gallery_corner_radius: int = 10
-    gallery_selection_color: str = "#A78BFA"
+    gallery_selection_color: str = "#D4D4D4"
     gallery_border_thickness: int = 4
     gallery_max_row_height: int = 240
     chunk_size: int = 1024 * 1024
     gallery_columns: int = 3
-    images_per_page: int = 6
+    images_per_page: int = 12
     image_extensions: frozenset[str] = frozenset(
         {".gif", ".jpeg", ".jpg", ".png", ".webp"}
     )

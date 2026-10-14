@@ -22,9 +22,12 @@ def cached_gallery_thumbnail(
     with Image.open(image_path) as source:
         source.draft("RGB", max_size)
         preview = ImageOps.exif_transpose(source).convert("RGB")
-        preview.thumbnail(max_size)
-
-    return preview
+        return ImageOps.fit(
+            preview,
+            max_size,
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5),
+        )
 
 
 class LunaVaultUI:
@@ -47,6 +50,8 @@ class LunaVaultUI:
 
     def gallery_column_count(self) -> int:
         """Use one gallery column on mobile and the configured count elsewhere."""
+        if st.session_state.get("gallery_view_mode") == "list":
+            return 1
         user_agent = st.context.headers.get("User-Agent", "")
         return (
             1
@@ -56,9 +61,10 @@ class LunaVaultUI:
 
     def gallery_search_placeholder(self) -> str:
         """Use a compact search hint on mobile displays."""
+        user_agent = st.context.headers.get("User-Agent", "")
         return (
             "Filename"
-            if self.gallery_column_count() == 1
+            if self._is_mobile_user_agent(user_agent)
             else "Type part of a filename"
         )
 
@@ -66,6 +72,8 @@ class LunaVaultUI:
     def initialize_state() -> None:
         """Initialize all Streamlit session-state values used by the application."""
         defaults = {
+            "color_theme": "dark",
+            "gallery_view_mode": "grid",
             "saved_uploads": set(),
             "uploaded_images": [],
             "uploader_key": 0,
@@ -74,9 +82,11 @@ class LunaVaultUI:
             "gallery_selection": set(),
             "pending_delete": [],
             "view_generation": 0,
+            "view_selector_generations": {},
+            "active_gallery_section": "view",
             "view_page": 0,
             "pending_view_delete": None,
-            "view_delete_notice": None,
+            "pending_view_hide": None,
             "download_generation": 0,
             "download_page": 0,
             "download_selection": set(),
@@ -139,7 +149,7 @@ class LunaVaultUI:
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                color: rgba(250, 250, 250, 0.6);
+                color: var(--lv-muted);
                 font-size: 0.875rem;
                 line-height: 1.25rem;
                 margin-bottom: 0.25rem;
@@ -214,7 +224,10 @@ class LunaVaultUI:
         selector_key = f"{key_prefix}_page"
         exiting = self.gallery_transition_phase(state_key) == "out"
 
-        previous_column, page_column, next_column = st.columns([7, 26, 7])
+        previous_column, page_column, next_column = st.columns([2, 7, 2])
+        previous_column.markdown(
+            '<span class="lv-pagination"></span>', unsafe_allow_html=True
+        )
         previous_column.button(
             ":material/arrow_back:",
             disabled=exiting or current_page == 0,
@@ -228,7 +241,7 @@ class LunaVaultUI:
         page_column.selectbox(
             "Page",
             options=list(range(1, page_count + 1)),
-            format_func=lambda page: f"Page {page}",
+            format_func=lambda page: f"Page {page} of {page_count}",
             index=current_page,
             label_visibility="collapsed",
             disabled=exiting,
@@ -251,17 +264,27 @@ class LunaVaultUI:
     def paginated_images(
         self, vault_images: list[Path], page_state_key: str, key_prefix: str
     ) -> tuple[int, list[Path]]:
-        """Render pagination controls and return the images on the active page."""
+        """Return the bounded page index and images on the active page."""
         page_count = (
             len(vault_images) + self.config.images_per_page - 1
         ) // self.config.images_per_page
-        current_page = self.render_gallery_navigation(
-            page_count, page_state_key, f"{key_prefix}_{page_count}"
-        )
+        current_page = min(max(st.session_state[page_state_key], 0), page_count - 1)
+        st.session_state[page_state_key] = current_page
         page_start = current_page * self.config.images_per_page
         return (
             current_page,
             vault_images[page_start : page_start + self.config.images_per_page],
+        )
+
+    def render_gallery_footer(
+        self, vault_images: list[Path], page_state_key: str, key_prefix: str
+    ) -> None:
+        """Render compact pagination controls beneath a gallery."""
+        page_count = (
+            len(vault_images) + self.config.images_per_page - 1
+        ) // self.config.images_per_page
+        self.render_gallery_navigation(
+            page_count, page_state_key, f"{key_prefix}_{page_count}"
         )
 
     def render_filename_row(

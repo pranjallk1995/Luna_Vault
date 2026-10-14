@@ -48,6 +48,33 @@ class SelectableGallery(LunaVaultUI):
         item_actions: ItemActions | None = None,
     ) -> None:
         """Render selectable thumbnails, filenames, and optional per-item actions."""
+        if st.session_state.gallery_view_mode == "list":
+            for image_path in images:
+                with st.container(border=True):
+                    thumbnail_column, detail_column = st.columns(
+                        [1, 3], vertical_alignment="center"
+                    )
+                    thumbnail_column.image(
+                        self.create_gallery_thumbnail(image_path), width="stretch"
+                    )
+                    selected = detail_column.checkbox(
+                        self.display_name(image_path.name),
+                        value=image_path.name in st.session_state[selection_key],
+                        key=(
+                            f"{key_prefix}_list_{generation}_{page}_"
+                            f"{image_path.name}"
+                        ),
+                    )
+                    if selected:
+                        st.session_state[selection_key].add(image_path.name)
+                    else:
+                        st.session_state[selection_key].discard(image_path.name)
+                    if item_actions:
+                        item_actions(
+                            detail_column, image_path, generation, page
+                        )
+            return
+
         columns = self.gallery_column_count()
         for row_start in range(0, len(images), columns):
             row_images = images[row_start : row_start + columns]
@@ -113,5 +140,6 @@ class SelectableGallery(LunaVaultUI):
             key_prefix,
             item_actions,
         )
+        self.render_gallery_footer(images, page_key, f"{key_prefix}_{generation}")
         self.finish_gallery_transition(page_key)
         return True

@@ -1,245 +1,75 @@
-"""Favorites collection page for Luna Vault."""
+"""Favorites collection using the same gallery experience as View Images."""
 
 from pathlib import Path
 
 import httpx
 import streamlit as st
 
-from tabs.gallery import SelectableGallery
+from tabs.shared import LunaVaultUI
+from tabs.view_page import ViewPage
 
 
-class FavoritesPage(SelectableGallery):
-    """Render persisted favorites and the visible images available to add."""
+class FavoriteGallery(ViewPage):
+    """View-style gallery with Favorite-specific item actions."""
 
-    def _render_favorite_actions(
-        self, column, image_path: Path, generation: int, page: int
+    def render_image_menu(
+        self, container, image_path: Path, generation: int, key_prefix: str
     ) -> None:
-        """Render full-view, download, and delete controls for a favorite image."""
-        view_column, download_column, delete_column = column.columns(3)
-
-        if view_column.button(
-            ":material/fullscreen:",
-            help="View full image",
-            width="stretch",
-            key=f"favorite_full_{generation}_{page}_{image_path.name}",
-        ):
-
-            @st.dialog(self.display_name(image_path.name), width="large")
-            def show_favorite_full_image(path: Path = image_path) -> None:
-                """Render the selected favorite image at full size."""
-                st.image(path, width="stretch")
-
-            show_favorite_full_image()
-
-        download_column.download_button(
-            ":material/download:",
-            data=image_path.read_bytes(),
-            file_name=self.display_name(image_path.name),
-            mime=f"image/{image_path.suffix.lower().lstrip('.')}",
-            help="Download image",
-            width="stretch",
-            key=f"favorite_download_{generation}_{page}_{image_path.name}",
-        )
-
-        if delete_column.button(
-            ":material/delete:",
-            help="Delete image",
-            width="stretch",
-            key=f"favorite_delete_{generation}_{page}_{image_path.name}",
-        ):
-            st.session_state.pending_favorite_delete = image_path.name
-            st.rerun()
-
-    def _delete_favorite(self, name: str) -> None:
-        """Delete a favorite through the normal visible-image lifecycle."""
-        response = httpx.delete(
-            f"{self.config.api_url}/api/images/{name}",
-            headers=self.config.api_headers,
-            timeout=30.0,
-        )
-        response.raise_for_status()
-
-        retained_uploads = []
-        for image in st.session_state.uploaded_images:
-            if image["name"] == name:
-                st.session_state.saved_uploads.discard(image["upload_id"])
-            else:
-                retained_uploads.append(image)
-
-        st.session_state.uploaded_images = retained_uploads
-        st.session_state.favorite_selection.discard(name)
-        st.session_state.pending_favorite_delete = None
-        st.session_state.favorite_generation += 1
-        st.session_state.view_generation += 1
-
-    def _set_favorites(self, selection_key: str, favorite: bool) -> None:
-        """Persist the selected images as favorites or remove them from Favorites."""
-        names = sorted(st.session_state[selection_key])
-
-        response = httpx.post(
-            f"{self.config.api_url}/api/favorites",
-            json={"names": names, "favorite": favorite},
-            headers=self.config.api_headers,
-            timeout=30.0,
-        )
-        response.raise_for_status()
-
-        st.session_state[selection_key] = set()
-        st.session_state.favorite_generation += 1
-        st.session_state.add_favorite_generation += 1
-        st.session_state.view_generation += 1
-        st.rerun()
-
-    def _render_collection(
-        self,
-        images: list[Path],
-        empty_message: str,
-        page_key: str,
-        selection_key: str,
-        generation_key: str,
-        key_prefix: str,
-        action_label: str,
-        favorite: bool,
-    ) -> None:
-        """Render one selectable collection and its bulk action."""
-        rendered = self.render_selectable_collection(
-            images,
-            empty_message,
-            page_key,
-            selection_key,
-            generation_key,
-            key_prefix,
-            self._render_favorite_actions if not favorite else None,
-        )
-
-        if not rendered:
-            return
-
-        if st.button(
-            action_label,
-            icon=":material/star:" if favorite else ":material/star_border:",
-            disabled=not st.session_state[selection_key],
-            type="secondary",
-            width="stretch",
-            key=f"{key_prefix}_action",
-        ):
-            try:
-                self._set_favorites(selection_key, favorite)
-            except httpx.HTTPStatusError as error:
-                st.error(
-                    error.response.json().get("error", "Could not update Favorites.")
-                )
-
-    def _render_delete_confirmation(self) -> None:
-        """Confirm permanent deletion of one favorite in a modal dialog."""
-        pending_name = st.session_state.pending_favorite_delete
-        if not pending_name:
-            return
-
-        @st.dialog("Delete image?", width="small")
-        def confirm_favorite_deletion(name: str = pending_name) -> None:
-            """Render the destructive-action confirmation dialog."""
-            st.write(f"Permanently delete **{self.display_name(name)}**? ")
-            cancel_column, delete_column = st.columns(2)
-            if cancel_column.button(
-                "Cancel", width="stretch", key="cancel_favorite_delete"
-            ):
-                st.session_state.pending_favorite_delete = None
-                st.rerun()
-            if delete_column.button(
-                "Delete",
-                icon=":material/delete:",
-                type="primary",
+        """Render only download and delete inside the Favorite item menu."""
+        with container.popover(":material/more_vert:", use_container_width=True):
+            download_column, delete_column = st.columns(2, gap="small")
+            download_column.download_button(
+                ":material/download:",
+                data=image_path.read_bytes(),
+                file_name=self.display_name(image_path.name),
+                mime=f"image/{image_path.suffix.lower().lstrip('.')}",
                 width="stretch",
-                key="confirm_favorite_delete",
+                key=f"{key_prefix}_download_{generation}_{image_path.name}",
+            )
+            if delete_column.button(
+                ":material/delete:",
+                width="stretch",
+                key=f"{key_prefix}_delete_{generation}_{image_path.name}",
             ):
-                try:
-                    self._delete_favorite(name)
-                    st.rerun()
-                except httpx.HTTPError as error:
-                    st.error(f"Could not delete the image: {error}")
+                st.session_state.pending_view_hide = None
+                st.session_state.pending_view_delete = image_path.name
+                st.rerun()
 
-        confirm_favorite_deletion()
 
-    def render(self, visible_images: list[Path]) -> None:
-        """Render the favorites page interface."""
+class FavoritesPage(LunaVaultUI):
+    """Render Favorite images without a secondary Add Images tab."""
+
+    def render(
+        self, visible_images: list[Path], metadata_by_name: dict[str, dict]
+    ) -> None:
+        """Render Favorites with the View Images layout and interactions."""
         response = httpx.get(
             f"{self.config.api_url}/api/favorites",
             headers=self.config.api_headers,
             timeout=10.0,
         )
         response.raise_for_status()
-
         favorite_names = {item["name"] for item in response.json()["images"]}
-
         favorite_images = [
             path for path in visible_images if path.name in favorite_names
         ]
-
-        available_images = [
-            path for path in visible_images if path.name not in favorite_names
-        ]
-        if st.session_state.pending_favorite_delete not in {
-            path.name for path in favorite_images
-        }:
-            st.session_state.pending_favorite_delete = None
-
-        favorites_tab, add_tab = st.tabs(
-            [":material/star: Favorite Images", ":material/add: Add images"]
-        )
-
-        with favorites_tab:
-            query = self.render_collection_search(
+        query = (
+            st.text_input(
                 "Search Favorites by image name",
-                "favorite_name_search",
+                placeholder=self.gallery_search_placeholder(),
+                key="favorite_name_search",
+                icon=":material/search:",
+                label_visibility="collapsed",
             )
-
-            filtered_images = [
-                path
-                for path in favorite_images
-                if query in self.display_name(path.name).casefold()
-            ]
-
-            self._render_collection(
-                filtered_images,
-                (
-                    "No favorite images match this search."
-                    if query
-                    else "No favorite images yet."
-                ),
-                "favorite_page",
-                "favorite_selection",
-                "favorite_generation",
-                "favorite",
-                "Remove selected",
-                False,
-            )
-
-        with add_tab:
-            query = self.render_collection_search(
-                "Search images to add by name",
-                "add_favorite_name_search",
-            )
-
-            filtered_images = [
-                path
-                for path in available_images
-                if query in self.display_name(path.name).casefold()
-            ]
-
-            self._render_collection(
-                filtered_images,
-                (
-                    "No available images match this search."
-                    if query
-                    else "Every visible image is already a favorite."
-                ),
-                "add_favorite_page",
-                "add_favorite_selection",
-                "add_favorite_generation",
-                "add_favorite",
-                "Add selected",
-                True,
-            )
-
-        self._render_delete_confirmation()
+            .strip()
+            .casefold()
+        )
+        filtered = [
+            path
+            for path in favorite_images
+            if query in self.display_name(path.name).casefold()
+        ]
+        if query and not filtered:
+            st.info("No favorite image names match your search.")
+            return
+        FavoriteGallery(self.config).render(filtered, metadata_by_name)

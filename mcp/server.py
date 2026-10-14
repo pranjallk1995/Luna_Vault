@@ -25,7 +25,6 @@ from security import HiddenVaultAuth
 from vault import ImageVaultService
 from vision import OllamaVisionAnalyzer
 
-
 MAX_FETCH_IMAGES = 20
 MAX_FETCH_BYTES = 50 * 1024 * 1024
 DISPLAY_MAX_EDGE = 768
@@ -50,16 +49,16 @@ def _validate_public_https_url(url: str) -> None:
         raise ValueError("image_url must resolve only to public internet addresses.")
 
 
-def _image_source_base64(
-    content_base64: str | None, image_url: str | None
-) -> str:
+def _image_source_base64(content_base64: str | None, image_url: str | None) -> str:
     """Return Base64 image bytes from exactly one supported chat source."""
     supplied = sum(
         value is not None and bool(value.strip())
         for value in (content_base64, image_url)
     )
     if supplied != 1:
-        raise ValueError("Provide exactly one of content_base64 or image_url.")
+        raise ValueError(
+            "Provide exactly one of content_base64, image_url, or file_path."
+        )
     if content_base64 and content_base64.strip():
         return content_base64.strip()
 
@@ -98,9 +97,7 @@ def _image_source_base64(
     raise ValueError("image_url could not be downloaded.")
 
 
-def _selected_visible_paths(
-    vault: ImageVaultService, names: list[str]
-) -> list[Path]:
+def _selected_visible_paths(vault: ImageVaultService, names: list[str]) -> list[Path]:
     """Resolve a bounded, deduplicated batch of visible image paths."""
     if not isinstance(names, list) or not names:
         raise ValueError("Provide at least one image name.")
@@ -156,7 +153,10 @@ def _display_images(paths: list[Path]) -> list[MCPImage]:
         sheet.paste(image, (left, top))
         label = path.name if len(path.name) <= 58 else f"{path.name[:55]}..."
         draw.text(
-            (column * tile_width + 12, row * (image_height + label_height) + image_height + 10),
+            (
+                column * tile_width + 12,
+                row * (image_height + label_height) + image_height + 10,
+            ),
             label,
             fill="white",
         )
@@ -235,17 +235,25 @@ class LunaVaultMCP:
             content_base64: str | None = None,
             image_url: str | None = None,
         ) -> dict[str, Any]:
-            """Upload a chat image from Base64, a data URL, or public HTTPS.
+            """Upload an image from a ChatGPT attachment, Base64, or HTTPS URL.
 
-            Provide exactly one of content_base64 or image_url and use the original
-            filename. URL downloads are limited to 50 MiB, and private or local
-            network addresses are rejected.
+            Provide exactly one of:
+            - content_base64: Base64-encoded image data
+            - image_url: Public HTTPS image URL or data URL
+
+            ChatGPT attachment paths may be converted to temporary
+            HTTPS URLs by the tool infrastructure.
+
+            Maximum image size: 50 MiB.
             """
             return {
                 "status": "created",
                 **vault.ingest_base64(
                     name,
-                    _image_source_base64(content_base64, image_url),
+                    _image_source_base64(
+                        content_base64,
+                        image_url,
+                    ),
                     replace=False,
                 ),
             }
@@ -277,9 +285,7 @@ class LunaVaultMCP:
             return vault.rename(name, new_name)
 
         @self.mcp.tool()
-        def set_favorite_images(
-            names: list[str], favorite: bool
-        ) -> dict[str, Any]:
+        def set_favorite_images(names: list[str], favorite: bool) -> dict[str, Any]:
             """Add or remove visible images from Favorites.
 
             Use exact filenames returned by list_images or search_images. Set
@@ -370,6 +376,25 @@ class LunaVaultMCP:
             except Exception as error:
                 return self._error(error)
 
+        @self.mcp.custom_route("/api/images/{name}/metadata", methods=["POST"])
+        async def update_metadata_route(request: Request) -> JSONResponse:
+            """Edit one visible image caption and searchable tags from the UI."""
+            try:
+                payload = await self._payload(request)
+                return JSONResponse(
+                    {
+                        "status": "metadata_updated",
+                        **vault.update_metadata(
+                            request.path_params["name"],
+                            payload.get("caption"),
+                            payload.get("add_tags"),
+                            payload.get("remove_tags"),
+                        ),
+                    }
+                )
+            except Exception as error:
+                return self._error(error)
+
         @self.mcp.custom_route("/api/favorites", methods=["GET"])
         async def favorites_route(request: Request) -> JSONResponse:
             """Return persisted visible favorites to the UI."""
@@ -441,6 +466,28 @@ class LunaVaultMCP:
             try:
                 auth.require(self._token(request))
                 return JSONResponse({"images": vault.hidden_metadata()})
+            except Exception as error:
+                return self._error(error)
+
+        @self.mcp.custom_route(
+            "/api/hidden/images/{name}/metadata", methods=["POST"]
+        )
+        async def update_hidden_metadata_route(request: Request) -> JSONResponse:
+            """Edit authenticated hidden-image caption and tags from the UI."""
+            try:
+                auth.require(self._token(request))
+                payload = await self._payload(request)
+                return JSONResponse(
+                    {
+                        "status": "metadata_updated",
+                        **vault.update_hidden_metadata(
+                            request.path_params["name"],
+                            payload.get("caption"),
+                            payload.get("add_tags"),
+                            payload.get("remove_tags"),
+                        ),
+                    }
+                )
             except Exception as error:
                 return self._error(error)
 
