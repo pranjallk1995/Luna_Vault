@@ -82,6 +82,8 @@ class LunaVaultUI:
             "gallery_selection": set(),
             "pending_delete": [],
             "view_generation": 0,
+            "view_selector_generations": {},
+            "active_gallery_section": "view",
             "view_page": 0,
             "pending_view_delete": None,
             "pending_view_hide": None,

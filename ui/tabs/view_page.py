@@ -213,7 +213,8 @@ class ViewPage(LunaVaultUI):
                             max_row_height=self.config.gallery_max_row_height,
                             key=(
                                 f"view_list_selector_{generation}_{current_page}_"
-                                f"{image_path.name}"
+                                f"{image_path.name}_"
+                                f"{st.session_state.view_selector_generations.get(image_path.name, 0)}"
                             ),
                         )
                         or []
@@ -296,7 +297,8 @@ class ViewPage(LunaVaultUI):
                             max_row_height=self.config.gallery_max_row_height,
                             key=(
                                 f"view_selector_{generation}_{current_page}_"
-                                f"{row_start}_{item_index}"
+                                f"{row_start}_{item_index}_"
+                                f"{st.session_state.view_selector_generations.get(image_path.name, 0)}"
                             ),
                         )
                         or []
@@ -394,7 +396,11 @@ class ViewPage(LunaVaultUI):
 
             confirm_view_hide()
         if clicked_image is not None:
-            st.session_state.view_generation += 1
+            selector_generations = dict(st.session_state.view_selector_generations)
+            selector_generations[clicked_image.name] = (
+                selector_generations.get(clicked_image.name, 0) + 1
+            )
+            st.session_state.view_selector_generations = selector_generations
 
             @st.dialog(self.display_name(clicked_image.name), width="large")
             def show_full_size_image() -> None:
@@ -482,12 +488,6 @@ class ViewPage(LunaVaultUI):
                 caption_icon.markdown(
                     '<span class="lv-preview-static-icon"></span>',
                     unsafe_allow_html=True,
-                )
-                caption_icon.button(
-                    ":material/closed_caption:",
-                    disabled=True,
-                    key=f"caption_icon_{clicked_image.name}",
-                    width="stretch",
                 )
                 if st.session_state.get(caption_state, False):
                     caption_column.text_input(

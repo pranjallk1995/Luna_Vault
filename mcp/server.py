@@ -469,6 +469,28 @@ class LunaVaultMCP:
             except Exception as error:
                 return self._error(error)
 
+        @self.mcp.custom_route(
+            "/api/hidden/images/{name}/metadata", methods=["POST"]
+        )
+        async def update_hidden_metadata_route(request: Request) -> JSONResponse:
+            """Edit authenticated hidden-image caption and tags from the UI."""
+            try:
+                auth.require(self._token(request))
+                payload = await self._payload(request)
+                return JSONResponse(
+                    {
+                        "status": "metadata_updated",
+                        **vault.update_hidden_metadata(
+                            request.path_params["name"],
+                            payload.get("caption"),
+                            payload.get("add_tags"),
+                            payload.get("remove_tags"),
+                        ),
+                    }
+                )
+            except Exception as error:
+                return self._error(error)
+
         @self.mcp.custom_route("/api/hidden/hide", methods=["POST"])
         async def hide_images_route(request: Request) -> JSONResponse:
             """Move selected visible images into the Hidden Vault."""

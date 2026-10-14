@@ -136,7 +136,10 @@ def main() -> None:
         label_visibility="collapsed",
         width="stretch",
     )
-    st.session_state.active_gallery_section = selected_tab
+    if selected_tab is None:
+        selected_tab = st.session_state.active_gallery_section
+    else:
+        st.session_state.active_gallery_section = selected_tab
 
     metadata_response = httpx.get(
         f"{config.api_url}/api/metadata",
@@ -156,9 +159,9 @@ def main() -> None:
     if selected_tab == "view":
         ViewImagesPage(config).render(vault_images, metadata_by_name)
     elif selected_tab == "favorites":
-        FavoritesPage(config).render(vault_images)
+        FavoritesPage(config).render(vault_images, metadata_by_name)
     else:
-        HiddenPage(config).render(vault_images)
+        HiddenPage(config).render(vault_images, metadata_by_name)
 
 
 if __name__ == "__main__":

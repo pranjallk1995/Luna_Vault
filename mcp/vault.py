@@ -237,6 +237,54 @@ class ImageVaultService:
 
         return self.repository.update_metadata(name, updated_caption, updated_tags)
 
+    def update_hidden_metadata(
+        self,
+        name: str,
+        caption: str | None = None,
+        add_tags: list[str] | None = None,
+        remove_tags: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Explicitly edit an authenticated hidden image caption and tags."""
+        path = self.safe_path(name)
+        if not path.is_file():
+            raise FileNotFoundError(f"Image {name!r} was not found.")
+        if not self.repository.is_hidden(name):
+            raise PermissionError("Only hidden images can use this route.")
+        if caption is None and add_tags is None and remove_tags is None:
+            raise ValueError("Provide a caption, add_tags, or remove_tags change.")
+
+        current = next(
+            (
+                item
+                for item in self.repository.list_all(hidden=True)
+                if item["name"] == name
+            ),
+            None,
+        )
+        if current is None:
+            raise FileNotFoundError(f"Image {name!r} was not found.")
+
+        updated_caption = current["caption"] if caption is None else caption.strip()
+        if not 3 <= len(updated_caption) <= 500:
+            raise ValueError("Caption must contain between 3 and 500 characters.")
+
+        additions = self.analyzer.normalize_tags(add_tags) if add_tags else []
+        removals = (
+            set(self.analyzer.normalize_tags(remove_tags)) if remove_tags else set()
+        )
+        updated_tags = [tag for tag in current["tags"] if tag not in removals]
+        for tag in additions:
+            if tag not in updated_tags:
+                updated_tags.append(tag)
+        if not updated_tags:
+            raise ValueError("At least one tag must remain on the image.")
+        if len(updated_tags) > self.config.max_tags:
+            raise ValueError(f"Images can have at most {self.config.max_tags} tags.")
+
+        return self.repository.update_metadata(
+            name, updated_caption, updated_tags, hidden=True
+        )
+
     def set_hidden(self, names: list[str], hidden: bool) -> dict[str, Any]:
         """Move validated images into or out of the logical hidden vault."""
         if not isinstance(names, list) or not names:
