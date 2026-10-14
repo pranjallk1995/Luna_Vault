@@ -157,7 +157,9 @@ class ImageVaultService:
         source = self.visible_path(name)
         destination = self.safe_path(new_name)
         if source == destination:
-            raise ValueError("The new image name must be different from the current name.")
+            raise ValueError(
+                "The new image name must be different from the current name."
+            )
         if source.suffix.lower() != destination.suffix.lower():
             raise ValueError("Renaming cannot change the image file extension.")
         if destination.exists():

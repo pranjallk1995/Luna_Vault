@@ -25,7 +25,6 @@ from security import HiddenVaultAuth
 from vault import ImageVaultService
 from vision import OllamaVisionAnalyzer
 
-
 MAX_FETCH_IMAGES = 20
 MAX_FETCH_BYTES = 50 * 1024 * 1024
 DISPLAY_MAX_EDGE = 768
@@ -51,17 +50,31 @@ def _validate_public_https_url(url: str) -> None:
 
 
 def _image_source_base64(
-    content_base64: str | None, image_url: str | None
+    content_base64: str | None, image_url: str | None, file_path: str | None
 ) -> str:
     """Return Base64 image bytes from exactly one supported chat source."""
     supplied = sum(
         value is not None and bool(value.strip())
-        for value in (content_base64, image_url)
+        for value in (content_base64, image_url, file_path)
     )
     if supplied != 1:
-        raise ValueError("Provide exactly one of content_base64 or image_url.")
+        raise ValueError(
+            "Provide exactly one of content_base64, image_url, or file_path."
+        )
     if content_base64 and content_base64.strip():
         return content_base64.strip()
+
+    if file_path is not None:
+        upload_root = Path("/workspace/uploads").resolve()
+        path = Path(file_path).resolve()
+        if not path.is_relative_to(upload_root):
+            raise ValueError("File path outside allowed directory")
+        if not path.is_file():
+            raise FileNotFoundError(f"Image not found: {path}")
+        if path.stat().st_size > 50 * 1024 * 1024:
+            raise ValueError("Image exceeds 50 MiB limit")
+        content_base64 = base64.b64encode(path.read_bytes()).decode("ascii")
+        return content_base64
 
     source = image_url.strip()
     if source.startswith("data:image/"):
@@ -98,9 +111,7 @@ def _image_source_base64(
     raise ValueError("image_url could not be downloaded.")
 
 
-def _selected_visible_paths(
-    vault: ImageVaultService, names: list[str]
-) -> list[Path]:
+def _selected_visible_paths(vault: ImageVaultService, names: list[str]) -> list[Path]:
     """Resolve a bounded, deduplicated batch of visible image paths."""
     if not isinstance(names, list) or not names:
         raise ValueError("Provide at least one image name.")
@@ -156,7 +167,10 @@ def _display_images(paths: list[Path]) -> list[MCPImage]:
         sheet.paste(image, (left, top))
         label = path.name if len(path.name) <= 58 else f"{path.name[:55]}..."
         draw.text(
-            (column * tile_width + 12, row * (image_height + label_height) + image_height + 10),
+            (
+                column * tile_width + 12,
+                row * (image_height + label_height) + image_height + 10,
+            ),
             label,
             fill="white",
         )
@@ -234,18 +248,42 @@ class LunaVaultMCP:
             name: str,
             content_base64: str | None = None,
             image_url: str | None = None,
+            file_path: str | None = None,
         ) -> dict[str, Any]:
-            """Upload a chat image from Base64, a data URL, or public HTTPS.
+            """Upload an image from a ChatGPT attachment, Base64, or HTTPS URL.
 
-            Provide exactly one of content_base64 or image_url and use the original
-            filename. URL downloads are limited to 50 MiB, and private or local
-            network addresses are rejected.
+            Provide exactly one of:
+            - content_base64: Base64-encoded image data
+            - image_url: Public HTTPS image URL or data URL
+            - file_path: ChatGPT attachment file path
+
+            ChatGPT attachment paths may be converted to temporary
+            HTTPS URLs by the tool infrastructure.
+
+            Maximum image size: 50 MiB.
             """
+
+            if file_path:
+                if content_base64 is not None or image_url is not None:
+                    raise ValueError("Provide exactly one image source.")
+
+                if file_path.startswith("https://"):
+                    image_url = file_path
+                    file_path = None
+                else:
+                    raise ValueError(
+                        "Local filesystem paths are not supported by this server."
+                    )
+
             return {
                 "status": "created",
                 **vault.ingest_base64(
                     name,
-                    _image_source_base64(content_base64, image_url),
+                    _image_source_base64(
+                        content_base64,
+                        image_url,
+                        file_path,
+                    ),
                     replace=False,
                 ),
             }
@@ -277,9 +315,7 @@ class LunaVaultMCP:
             return vault.rename(name, new_name)
 
         @self.mcp.tool()
-        def set_favorite_images(
-            names: list[str], favorite: bool
-        ) -> dict[str, Any]:
+        def set_favorite_images(names: list[str], favorite: bool) -> dict[str, Any]:
             """Add or remove visible images from Favorites.
 
             Use exact filenames returned by list_images or search_images. Set
