@@ -36,10 +36,6 @@ The main gallery provides filename search, pagination, AI-generated captions and
 tags, full-size viewing, downloads, and deletion controls. Persisted Favorites
 provide a focused collection for images you return to often.
 
-<p align="center">
-  <img src="docs/assets/luna-vault-gallery.png" alt="Luna Vault gallery with AI-generated captions and image controls" width="760">
-</p>
-
 The hidden vault keeps private images behind a password and supports adding,
 viewing, downloading, restoring, searching, and deleting them separately.
 
