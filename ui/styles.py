@@ -15,10 +15,10 @@ def apply_app_styles(theme: str = "dark") -> None:
         "--lv-accent:#6366f1;--lv-soft:rgba(99,102,241,.12);"
         if theme == "light"
         else
-        "--lv-bg:#080c18;--lv-surface:#11182a;--lv-control:#121a2d;"
-        "--lv-control-hover:#1a2440;--lv-text:#f1f5f9;--lv-muted:#9aa6bd;"
-        "--lv-border:rgba(148,163,184,.18);--lv-strong:rgba(167,139,250,.42);"
-        "--lv-accent:#a78bfa;--lv-soft:rgba(167,139,250,.12);"
+        "--lv-bg:#111111;--lv-surface:rgba(255,255,255,.055);--lv-control:rgba(255,255,255,.07);"
+        "--lv-control-hover:rgba(255,255,255,.12);--lv-text:#f5f5f5;--lv-muted:#a3a3a3;"
+        "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
+        "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
     )
     st.markdown(
         f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True
@@ -27,7 +27,7 @@ def apply_app_styles(theme: str = "dark") -> None:
         """
         <style>
 
-        .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(124,58,237,.14),transparent 30rem),var(--lv-bg); }
+        .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(255,255,255,.07),transparent 30rem),var(--lv-bg); }
         .block-container { max-width:1180px; padding-top:1.35rem; padding-bottom:3rem; }
         .stApp p,.stApp label,.stApp [data-testid="stMarkdownContainer"] { color:var(--lv-text); }
         div[data-testid="stHorizontalBlock"]:has(.lv-header) { align-items:center; margin-bottom:.55rem; }
@@ -40,9 +40,9 @@ def apply_app_styles(theme: str = "dark") -> None:
         .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
         div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
         div[data-testid="stTabs"] [data-baseweb="tab"] { height:2.55rem; padding:0 1rem; border-radius:.65rem; color:var(--lv-muted); }
-        div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:#ede9fe; }
+        div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:var(--lv-text); }
         div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display:none; }
-        div[data-testid="stButtonGroup"] { padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
+        div[data-testid="stButtonGroup"] { gap:.2rem; padding:.4rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
         div[data-testid="stButtonGroup"] button { min-height:2.55rem!important; border:0!important; border-radius:.65rem!important; box-shadow:none!important; }
         div[data-testid="stPopover"] > button[data-testid] {
             width:1.75rem!important; min-width:1.75rem!important;
@@ -59,8 +59,8 @@ def apply_app_styles(theme: str = "dark") -> None:
             display:none!important;
         }
         div[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--lv-border); border-radius:14px; background:var(--lv-surface); box-shadow:0 10px 30px rgba(0,0,0,.12); }
-        div[data-testid="stFileUploader"] section { min-height:10rem; border:1px dashed rgba(167,139,250,.48); border-radius:14px; background:linear-gradient(145deg,rgba(167,139,250,.09),rgba(17,24,42,.7)); }
-        div[data-testid="stFileUploader"] section:hover { border-color:var(--lv-accent); background:rgba(167,139,250,.1); }
+        div[data-testid="stFileUploader"] section { min-height:10rem; border:1px dashed rgba(255,255,255,.30); border-radius:14px; background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025)); }
+        div[data-testid="stFileUploader"] section:hover { border-color:rgba(255,255,255,.48); background:rgba(255,255,255,.11); }
         div[data-baseweb="input"],div[data-baseweb="select"] > div { border:1px solid var(--lv-border)!important; border-radius:.75rem!important; background:var(--lv-surface)!important; box-shadow:none!important; }
         div[data-baseweb="input"]:focus-within { border-color:var(--lv-strong)!important; }
         div[data-baseweb="input"] > div { border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; }
@@ -82,13 +82,27 @@ def apply_app_styles(theme: str = "dark") -> None:
             stroke:var(--lv-text)!important;
         }
         div[data-baseweb="select"] svg { fill:var(--lv-muted)!important; color:var(--lv-muted)!important; }
-        .stButton > button,.stDownloadButton > button,div[data-testid="stFormSubmitButton"] > button { min-height:2.55rem; border-color:var(--lv-border); border-radius:.75rem; background:rgba(17,24,42,.82); transition:border-color 140ms ease,background 140ms ease,transform 140ms ease; }
-        .stButton > button:hover,.stDownloadButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover { border-color:var(--lv-strong); background:var(--lv-soft); color:#f5f3ff; transform:translateY(-1px); }
-        button[kind="primary"] { border-color:transparent!important; background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important; color:white!important; }
+        .stButton > button,.stDownloadButton > button,div[data-testid="stFormSubmitButton"] > button { min-height:2.55rem; border-color:var(--lv-border); border-radius:.75rem; background:rgba(255,255,255,.07); transition:border-color 140ms ease,background 140ms ease,transform 140ms ease; }
+        .stButton > button:hover,.stDownloadButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover { border-color:var(--lv-strong); background:var(--lv-soft); color:var(--lv-text); transform:translateY(-1px); }
+        button[kind="primary"] { border-color:rgba(255,255,255,.28)!important; background:rgba(255,255,255,.16)!important; color:white!important; }
         div[data-testid="stImage"] img { border-radius:.8rem; }
+        div[data-testid="stElementContainer"]:has(> div[data-testid="stCustomComponentV1"]),
+        div[data-testid="stColumn"]:has(.lv-thumbnail-shell) {
+            overflow:visible!important;
+        }
+        div[data-testid="stCustomComponentV1"] {
+            position:relative; z-index:1; border-radius:.8rem;
+            transition:transform 180ms cubic-bezier(.2,.8,.2,1),filter 180ms ease;
+            transform-origin:center;
+            will-change:transform,filter;
+        }
         div[data-testid="stCustomComponentV1"] iframe {
             border-radius:.8rem!important;
             clip-path:inset(0 round .8rem);
+        }
+        div[data-testid="stCustomComponentV1"]:hover {
+            z-index:20; transform:translateY(-8px) scale(1.045);
+            filter:drop-shadow(0 18px 24px rgba(0,0,0,.52)) drop-shadow(0 0 2px rgba(255,255,255,.42));
         }
         div[data-testid="stColumn"]:has(.lv-thumbnail-shell) { position:relative; }
         div[data-testid="stColumn"]:has(.lv-thumbnail-shell) > div[data-testid="stVerticalBlock"] { gap:.3rem!important; }
@@ -194,9 +208,9 @@ def apply_app_styles(theme: str = "dark") -> None:
             color:var(--lv-muted)!important; opacity:1!important;
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) { margin-top:.45rem; }
-        div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(17,24,42,.5); }
+        div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(255,255,255,.045); }
         div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
-        div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(17,24,42,.66); }
+        div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(255,255,255,.055); }
         /* Shared control system: native, icon, form, and download buttons. */
         .stButton > button,.stDownloadButton > button,
         div[data-testid="stFormSubmitButton"] > button,
@@ -218,7 +232,7 @@ def apply_app_styles(theme: str = "dark") -> None:
             outline:2px solid var(--lv-accent)!important; outline-offset:2px;
         }
         button[data-testid="stBaseButton-primary"],button[kind="primary"] {
-            border-color:transparent!important; background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important;
+            border-color:rgba(255,255,255,.28)!important; background:rgba(255,255,255,.16)!important;
         }
         div[data-testid="stPopover"] button {
             width:1.75rem!important; min-width:1.75rem!important;
@@ -262,6 +276,17 @@ def apply_app_styles(theme: str = "dark") -> None:
         }
         div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) button[data-testid="stBaseButton-primary"] {
             color:#ff3b5c!important;
+        }
+        /* Keep navigation segments visually separated from one another. */
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button {
+            margin-inline:.16rem!important;
+            padding-inline:1rem!important;
+            border:0!important;
+            background:transparent!important;
+            box-shadow:none!important;
+        }
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button[aria-pressed="true"] {
+            background:rgba(255,255,255,.12)!important;
         }
         button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
         div[data-baseweb="input"],div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }

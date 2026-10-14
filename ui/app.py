@@ -123,7 +123,8 @@ def main() -> None:
         ]
     tab_keys = ["view", "favorites", "hidden"]
     label_by_key = dict(zip(tab_keys, tab_labels))
-    selected_tab = st.segmented_control(
+    navigation_container = st.container(key="gallery_navigation")
+    selected_tab = navigation_container.segmented_control(
         "Gallery section",
         tab_keys,
         default=st.session_state.get("active_gallery_section", "view"),
