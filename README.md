@@ -14,6 +14,9 @@ searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the index
 collection available to AI assistants of your choice (ChatGPT here) for fast search and safe image-management
 operations without repeatedly opening every original image.
 
+<p align="center">
+  <img src="docs/assets/luna-vault-ai-assistant.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
+</p>
 
 The Streamlit interface lets you upload, search, view, favorite, download, hide,
 restore, and delete images. Image data, metadata, and AI models persist in Docker volumes,
@@ -21,7 +24,7 @@ while the password-protected hidden vault stays separate from normal galleries
 and searches.
 
 <p align="center">
-  <img src="docs/assets/luna-vault-ai-assistant.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
+  <img src="docs/assets/luna-vault-image-view.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
 </p>
 
 An MCP-connected AI assistant can query Luna Vault's generated captions and tags,
