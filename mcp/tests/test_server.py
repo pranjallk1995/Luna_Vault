@@ -53,6 +53,17 @@ class FakeVault:
             "count": len(names),
         }
 
+    def public_url(self, name: str) -> str:
+        self.visible_path(name)
+        return f"https://vault.example.test/vault/api/public/images/{name}"
+
+    def update_public_base_url(self, public_base_url: str):
+        return {
+            "status": "public_base_url_updated",
+            "public_base_url": public_base_url.rstrip("/"),
+            "updated_image_count": 2,
+        }
+
 
 class ImageDeliveryTests(unittest.TestCase):
     """Verify bounded selection and downloadable ZIP construction."""
@@ -84,6 +95,34 @@ class ImageDeliveryTests(unittest.TestCase):
         content = result.to_image_content()
         self.assertEqual(content.mimeType, "image/jpeg")
         self.assertTrue(base64.b64decode(content.data))
+
+    def test_get_image_url_returns_visible_https_location(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("get_image_url")
+
+        result = asyncio.run(tool.run({"name": "one.png"}))
+
+        self.assertEqual(
+            result,
+            {
+                "name": "one.png",
+                "url": (
+                    "https://vault.example.test/vault/"
+                    "api/public/images/one.png"
+                ),
+            },
+        )
+
+    def test_set_public_base_url_updates_urls_from_chat(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("set_public_base_url")
+
+        result = asyncio.run(
+            tool.run({"public_base_url": "https://new.example.test/vault/"})
+        )
+
+        self.assertEqual(result["public_base_url"], "https://new.example.test/vault")
+        self.assertEqual(result["updated_image_count"], 2)
 
     def test_upload_image_accepts_image_data_url(self) -> None:
         server = LunaVaultMCP(self.vault, object())

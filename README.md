@@ -111,6 +111,8 @@ Luna Vault exposes these tools to connected MCP clients:
 - `fetch_images` - display selected visible images in chat or return them as a ZIP.
 - `add_image` - programmatically add Base64 image data and generate metadata.
 - `upload_image` - upload a file attached to the user's ChatGPT message through ChatGPT's native file parameter, then generate metadata.
+- `get_image_url` - return the stored public HTTPS URL for one visible image.
+- `set_public_base_url` - update the persisted Funnel origin and regenerate all stored image URLs.
 - `modify_image` - replace a visible image and refresh its metadata.
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
 - `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.

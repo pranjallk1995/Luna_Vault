@@ -17,7 +17,7 @@ from mcp.types import BlobResourceContents, EmbeddedResource
 from PIL import Image as PillowImage
 from PIL import ImageDraw, ImageOps
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse
 
 from .config import AppConfig
 from .database import MetadataRepository
@@ -206,6 +206,21 @@ class LunaVaultMCP:
             return _display_images([path])[0]
 
         @self.mcp.tool()
+        def get_image_url(name: str) -> dict[str, str]:
+            """Return the public HTTPS URL for one non-hidden stored image."""
+            return {"name": name, "url": vault.public_url(name)}
+
+        @self.mcp.tool()
+        def set_public_base_url(public_base_url: str) -> dict[str, Any]:
+            """Change the public HTTPS origin used by all Luna Vault image URLs.
+
+            Supply the full externally reachable base, including any path prefix,
+            for example https://device.tailnet.ts.net/vault. Every stored image URL
+            is regenerated immediately; no service restart is required.
+            """
+            return vault.update_public_base_url(public_base_url)
+
+        @self.mcp.tool()
         def fetch_images(
             names: list[str], delivery: Literal["display", "zip"] = "display"
         ):
@@ -342,6 +357,22 @@ class LunaVaultMCP:
             """Return visible image metadata to the UI."""
             del request
             return JSONResponse({"images": vault.metadata()})
+
+        @self.mcp.custom_route("/api/public/images/{name}", methods=["GET"])
+        async def public_image_route(request: Request) -> FileResponse | JSONResponse:
+            """Serve one visible image through the configured HTTPS origin."""
+            try:
+                path = vault.visible_path(request.path_params["name"])
+                return FileResponse(
+                    path,
+                    headers={
+                        "Content-Disposition": f'inline; filename="{path.name}"',
+                        "Cache-Control": "private, max-age=300",
+                        "X-Content-Type-Options": "nosniff",
+                    },
+                )
+            except Exception as error:
+                return self._error(error)
 
         @self.mcp.custom_route("/api/images", methods=["POST"])
         async def upload_route(request: Request) -> JSONResponse:

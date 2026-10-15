@@ -75,6 +75,7 @@ services:
       IMAGE_DIR: /data/images
       OLLAMA_URL: http://luna-vault-ollama:11434
       VISION_MODEL: ${VISION_MODEL:-qwen2.5vl:7b}
+      LUNAVAULT_PUBLIC_BASE_URL: ${LUNAVAULT_PUBLIC_BASE_URL:-}
     expose:
       - "8000"
     ports:

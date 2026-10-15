@@ -14,6 +14,7 @@ class AppConfig:
     database_url: str
     ollama_url: str
     vision_model: str
+    public_base_url: str = ""
     allowed_formats: dict[str, str] = field(
         default_factory=lambda: {
             ".gif": "GIF",
@@ -76,9 +77,17 @@ class AppConfig:
         if not vision_model:
             raise RuntimeError("VISION_MODEL cannot be blank.")
         image_dir = Path(os.getenv("IMAGE_DIR", "/data/images"))
+        public_base_url = os.getenv("LUNAVAULT_PUBLIC_BASE_URL", "").strip().rstrip("/")
+        if public_base_url:
+            public_url = urlparse(public_base_url)
+            if public_url.scheme != "https" or not public_url.netloc:
+                raise RuntimeError(
+                    "LUNAVAULT_PUBLIC_BASE_URL must be a valid HTTPS URL."
+                )
         return cls(
             image_dir=image_dir,
             database_url=database_url,
             ollama_url=ollama_url,
             vision_model=vision_model,
+            public_base_url=public_base_url,
         )

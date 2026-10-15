@@ -21,8 +21,18 @@ class FakeRepository:
     def __init__(self) -> None:
         """Initialize this component and its required dependencies."""
         self.rows = {}
+        self.configured_base_url = ""
 
-    def upsert(self, name, size_bytes, content_sha256, caption, tags, analysis_model):
+    def upsert(
+        self,
+        name,
+        size_bytes,
+        content_sha256,
+        caption,
+        tags,
+        analysis_model,
+        public_url=None,
+    ):
         """Insert or replace one record in the test repository."""
         row = {
             "name": name,
@@ -34,6 +44,7 @@ class FakeRepository:
             "updated_at": "test",
             "hidden": self.rows.get(name, {}).get("hidden", False),
             "favorite": self.rows.get(name, {}).get("favorite", False),
+            "public_url": public_url,
         }
         self.rows[name] = row
         return row
@@ -42,14 +53,18 @@ class FakeRepository:
         """Delete one metadata record by filename."""
         self.rows.pop(name, None)
 
-    def rename(self, name, new_name):
+    def rename(self, name, new_name, public_url=None):
         """Rename one visible record while preserving its metadata."""
         if new_name in self.rows:
             raise FileExistsError(new_name)
         row = self.rows.get(name)
         if row is None or row.get("hidden", False):
             raise FileNotFoundError(name)
-        row = {**self.rows.pop(name), "name": new_name}
+        row = {
+            **self.rows.pop(name),
+            "name": new_name,
+            "public_url": public_url,
+        }
         self.rows[new_name] = row
         return row
 
@@ -101,6 +116,27 @@ class FakeRepository:
                 row["favorite"] = favorite
                 changed.append(name)
         return changed
+
+    def initialize_public_base_url(self, public_base_url):
+        """Seed the in-memory public URL configuration once."""
+        if not self.configured_base_url:
+            self.configured_base_url = public_base_url
+        for name, row in self.rows.items():
+            row["public_url"] = (
+                f"{self.configured_base_url}/api/public/images/{name}"
+            )
+        return self.configured_base_url
+
+    def public_base_url(self):
+        """Return the in-memory public URL configuration."""
+        return self.configured_base_url
+
+    def set_public_base_url(self, public_base_url):
+        """Replace the in-memory public origin and refresh image URLs."""
+        self.configured_base_url = public_base_url
+        for name, row in self.rows.items():
+            row["public_url"] = f"{public_base_url}/api/public/images/{name}"
+        return len(self.rows)
 
     def search(self, query, tags, match_all, limit, offset):
         """Return matching visible metadata from the test repository."""
@@ -154,6 +190,7 @@ class ImageVaultServiceTests(unittest.TestCase):
             database_url="postgresql://test",
             ollama_url="http://ollama:11434",
             vision_model="test-vision",
+            public_base_url="https://vault.example.test/vault",
         )
         self.service = ImageVaultService(self.config, self.repository, FakeAnalyzer())
 
@@ -176,6 +213,44 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["caption"], "A tabby cat on a sofa.")
         self.assertEqual(result["tags"], ["cat", "sofa"])
         self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+        self.assertEqual(
+            result["public_url"],
+            "https://vault.example.test/vault/api/public/images/cat.png",
+        )
+
+    def test_public_url_rejects_hidden_images(self):
+        """Ensure public URLs never bypass Hidden Vault access control."""
+        self.service.ingest_base64("cat.png", png_payload())
+        self.repository.rows["cat.png"]["hidden"] = True
+
+        with self.assertRaises(PermissionError):
+            self.service.public_url("cat.png")
+
+    def test_public_base_url_update_regenerates_stored_urls(self):
+        """Allow chat configuration changes without restarting the service."""
+        self.service.ingest_base64("cat.png", png_payload())
+
+        result = self.service.update_public_base_url(
+            "https://new-device.example.test/vault/"
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "status": "public_base_url_updated",
+                "public_base_url": "https://new-device.example.test/vault",
+                "updated_image_count": 1,
+            },
+        )
+        self.assertEqual(
+            self.repository.rows["cat.png"]["public_url"],
+            "https://new-device.example.test/vault/api/public/images/cat.png",
+        )
+
+    def test_public_base_url_rejects_non_https_values(self):
+        """Reject origins that cannot safely expose images to ChatGPT."""
+        with self.assertRaises(ValueError):
+            self.service.update_public_base_url("http://localhost:18000/vault")
 
     def test_replacing_image_adds_ai_modified_tag(self):
         """Verify replacing image adds ai modified tag."""
@@ -242,7 +317,9 @@ class ImageVaultServiceTests(unittest.TestCase):
         """Verify a repository failure cannot leave a half-renamed file."""
         self.service.ingest_base64("cat.png", png_payload())
         original_rename = self.repository.rename
-        self.repository.rename = lambda name, new_name: (_ for _ in ()).throw(
+        self.repository.rename = lambda name, new_name, public_url=None: (
+            _ for _ in ()
+        ).throw(
             RuntimeError("database unavailable")
         )
         try:

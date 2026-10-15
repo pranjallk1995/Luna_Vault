@@ -1,6 +1,7 @@
 """PostgreSQL schema management and metadata repository operations."""
 
 from typing import Any
+from urllib.parse import quote
 
 import psycopg
 
@@ -18,12 +19,15 @@ CREATE TABLE IF NOT EXISTS image_metadata (
     updated_at timestamptz NOT NULL DEFAULT now(),
     search_vector tsvector NOT NULL,
     hidden boolean NOT NULL DEFAULT false,
-    favorite boolean NOT NULL DEFAULT false
+    favorite boolean NOT NULL DEFAULT false,
+    public_url text
 );
 ALTER TABLE image_metadata
     ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false;
 ALTER TABLE image_metadata
     ADD COLUMN IF NOT EXISTS favorite boolean NOT NULL DEFAULT false;
+ALTER TABLE image_metadata
+    ADD COLUMN IF NOT EXISTS public_url text;
 CREATE INDEX IF NOT EXISTS image_metadata_search_idx
     ON image_metadata USING gin (search_vector);
 CREATE INDEX IF NOT EXISTS image_metadata_tags_idx
@@ -43,6 +47,11 @@ CREATE TABLE IF NOT EXISTS vault_security (
     iterations integer NOT NULL CHECK (iterations >= 100000),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS vault_config (
+    singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    public_base_url text NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
 """
 
 
@@ -60,6 +69,7 @@ class MetadataRepository:
             "name": row[0], "size_bytes": row[1], "content_sha256": row[2],
             "caption": row[3], "tags": row[4], "analysis_model": row[5],
             "updated_at": row[6].isoformat(), "hidden": row[7], "favorite": row[8],
+            "public_url": row[9],
         }
 
     def initialize(self) -> None:
@@ -68,14 +78,16 @@ class MetadataRepository:
             connection.execute(SCHEMA_SQL)
 
     def upsert(self, name: str, size_bytes: int, content_sha256: str,
-               caption: str, tags: list[str], analysis_model: str) -> dict[str, Any]:
+               caption: str, tags: list[str], analysis_model: str,
+               public_url: str | None = None) -> dict[str, Any]:
         """Insert or replace metadata and rebuild its weighted search vector."""
         with psycopg.connect(self.database_url) as connection:
             row = connection.execute(
                 """
                 INSERT INTO image_metadata
-                    (name, size_bytes, content_sha256, caption, tags, analysis_model, search_vector)
-                VALUES (%s, %s, %s, %s, %s, %s,
+                    (name, size_bytes, content_sha256, caption, tags, analysis_model,
+                     public_url, search_vector)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,
                     setweight(to_tsvector('english', %s), 'A') ||
                     setweight(to_tsvector('english', %s), 'B'))
                 ON CONFLICT (name) DO UPDATE SET
@@ -84,12 +96,14 @@ class MetadataRepository:
                     caption = EXCLUDED.caption,
                     tags = EXCLUDED.tags,
                     analysis_model = EXCLUDED.analysis_model,
+                    public_url = EXCLUDED.public_url,
                     search_vector = EXCLUDED.search_vector,
                     updated_at = now()
                 RETURNING name, size_bytes, content_sha256, caption, tags,
-                          analysis_model, updated_at, hidden, favorite
+                          analysis_model, updated_at, hidden, favorite, public_url
                 """,
                 (name, size_bytes, content_sha256, caption, tags, analysis_model,
+                 public_url,
                  caption, " ".join(tags)),
             ).fetchone()
         return self._row_to_metadata(row)
@@ -99,17 +113,20 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             connection.execute("DELETE FROM image_metadata WHERE name = %s", (name,))
 
-    def rename(self, name: str, new_name: str) -> dict[str, Any]:
+    def rename(
+        self, name: str, new_name: str, public_url: str | None = None
+    ) -> dict[str, Any]:
         """Rename one visible metadata record while preserving all other fields."""
         try:
             with psycopg.connect(self.database_url) as connection:
                 row = connection.execute(
                     """UPDATE image_metadata
-                       SET name = %s, updated_at = now()
+                       SET name = %s, public_url = %s, updated_at = now()
                        WHERE name = %s AND hidden = false
                        RETURNING name, size_bytes, content_sha256, caption, tags,
-                                 analysis_model, updated_at, hidden, favorite""",
-                    (new_name, name),
+                                 analysis_model, updated_at, hidden, favorite,
+                                 public_url""",
+                    (new_name, public_url, name),
                 ).fetchone()
         except psycopg.errors.UniqueViolation as error:
             raise FileExistsError(f"Image {new_name!r} already exists.") from error
@@ -136,7 +153,8 @@ class MetadataRepository:
                        updated_at = now()
                    WHERE name = %s AND hidden = %s
                    RETURNING name, size_bytes, content_sha256, caption, tags,
-                             analysis_model, updated_at, hidden, favorite""",
+                             analysis_model, updated_at, hidden, favorite,
+                             public_url""",
                 (caption, tags, caption, " ".join(tags), name, hidden),
             ).fetchone()
         if row is None:
@@ -150,7 +168,7 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             rows = connection.execute(
                 f"""SELECT name, size_bytes, content_sha256, caption, tags,
-                           analysis_model, updated_at, hidden, favorite
+                           analysis_model, updated_at, hidden, favorite, public_url
                     FROM image_metadata {where}
                     ORDER BY updated_at DESC, name""",
                 parameters,
@@ -184,12 +202,73 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             rows = connection.execute(
                 """SELECT name, size_bytes, content_sha256, caption, tags,
-                          analysis_model, updated_at, hidden, favorite
+                          analysis_model, updated_at, hidden, favorite, public_url
                    FROM image_metadata
                    WHERE favorite = true AND hidden = false
                    ORDER BY updated_at DESC, name"""
             ).fetchall()
         return [self._row_to_metadata(row) for row in rows]
+
+    @staticmethod
+    def _public_url(public_base_url: str, name: str) -> str:
+        return f"{public_base_url}/api/public/images/{quote(name, safe='')}"
+
+    def initialize_public_base_url(self, default_url: str) -> str:
+        """Seed mutable URL configuration once and refresh stored image URLs."""
+        with psycopg.connect(self.database_url) as connection:
+            if default_url:
+                connection.execute(
+                    """INSERT INTO vault_config (singleton, public_base_url)
+                       VALUES (true, %s)
+                       ON CONFLICT (singleton) DO NOTHING""",
+                    (default_url,),
+                )
+            row = connection.execute(
+                "SELECT public_base_url FROM vault_config WHERE singleton = true"
+            ).fetchone()
+            public_base_url = row[0] if row else ""
+            if not public_base_url:
+                return ""
+            names = connection.execute("SELECT name FROM image_metadata").fetchall()
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    "UPDATE image_metadata SET public_url = %s WHERE name = %s",
+                    [
+                        (self._public_url(public_base_url, name), name)
+                        for (name,) in names
+                    ],
+                )
+        return public_base_url
+
+    def public_base_url(self) -> str:
+        """Return the currently persisted public HTTPS origin."""
+        with psycopg.connect(self.database_url) as connection:
+            row = connection.execute(
+                "SELECT public_base_url FROM vault_config WHERE singleton = true"
+            ).fetchone()
+        return row[0] if row else ""
+
+    def set_public_base_url(self, public_base_url: str) -> int:
+        """Atomically store the origin and regenerate every image URL."""
+        with psycopg.connect(self.database_url) as connection:
+            connection.execute(
+                """INSERT INTO vault_config (singleton, public_base_url)
+                   VALUES (true, %s)
+                   ON CONFLICT (singleton) DO UPDATE SET
+                       public_base_url = EXCLUDED.public_base_url,
+                       updated_at = now()""",
+                (public_base_url,),
+            )
+            names = connection.execute("SELECT name FROM image_metadata").fetchall()
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    "UPDATE image_metadata SET public_url = %s WHERE name = %s",
+                    [
+                        (self._public_url(public_base_url, name), name)
+                        for (name,) in names
+                    ],
+                )
+        return len(names)
 
     def set_favorite(self, names: list[str], favorite: bool) -> list[str]:
         """Set favorite state for visible images."""

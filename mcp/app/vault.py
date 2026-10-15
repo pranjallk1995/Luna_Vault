@@ -7,6 +7,7 @@ import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlparse
 from uuid import uuid4
 
 from PIL import Image as PillowImage
@@ -32,6 +33,55 @@ class ImageVaultService:
         self.repository = repository
         self.analyzer = analyzer
         self.image_dir.mkdir(parents=True, exist_ok=True)
+        self.repository.initialize_public_base_url(self.config.public_base_url)
+
+    @staticmethod
+    def validate_public_base_url(public_base_url: str) -> str:
+        """Normalize and validate a public HTTPS origin and optional path prefix."""
+        normalized = public_base_url.strip().rstrip("/")
+        parsed = urlparse(normalized)
+        if (
+            parsed.scheme != "https"
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "public_base_url must be an HTTPS URL without credentials, "
+                "a query, or a fragment."
+            )
+        return normalized
+
+    def configured_public_base_url(self) -> str:
+        """Return the mutable public origin stored in Luna Vault configuration."""
+        public_base_url = self.repository.public_base_url()
+        if not public_base_url:
+            raise RuntimeError("The Luna Vault public base URL is not configured.")
+        return public_base_url
+
+    def update_public_base_url(self, public_base_url: str) -> dict[str, Any]:
+        """Persist a new HTTPS origin and regenerate all stored image URLs."""
+        normalized = self.validate_public_base_url(public_base_url)
+        updated_count = self.repository.set_public_base_url(normalized)
+        return {
+            "status": "public_base_url_updated",
+            "public_base_url": normalized,
+            "updated_image_count": updated_count,
+        }
+
+    def url_for_name(self, name: str) -> str:
+        """Build an image URL from the current persisted public origin."""
+        return (
+            f"{self.configured_public_base_url()}/api/public/images/"
+            f"{quote(name, safe='')}"
+        )
+
+    def public_url(self, name: str) -> str:
+        """Return the configured public HTTPS URL for a visible image."""
+        self.visible_path(name)
+        return self.url_for_name(name)
 
     def safe_path(self, name: str) -> Path:
         """Resolve a supported plain filename without allowing path escape."""
@@ -88,6 +138,7 @@ class ImageVaultService:
             caption=analysis.caption,
             tags=analysis.tags,
             analysis_model=self.analyzer.model,
+            public_url=self.url_for_name(name),
         )
 
     def ingest_base64(
@@ -117,6 +168,7 @@ class ImageVaultService:
                 analysis.caption,
                 tags,
                 self.analyzer.model,
+                self.url_for_name(name),
             )
         except Exception:
             # Roll the file back if metadata persistence fails after replacement.
@@ -167,7 +219,11 @@ class ImageVaultService:
 
         source.rename(destination)
         try:
-            metadata = self.repository.rename(name, new_name)
+            metadata = self.repository.rename(
+                name,
+                new_name,
+                self.url_for_name(new_name),
+            )
         except Exception:
             # Keep the file and its primary-key metadata aligned on database failure.
             destination.rename(source)
