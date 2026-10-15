@@ -131,9 +131,9 @@ The built-in development credentials work without creating a `.env` file:
 
 | Setting | Default |
 | --- | --- |
-| Database | `lunavault` (legacy storage identifier) |
-| Username | `lunavault` (legacy storage identifier) |
-| Password | `lunavault-dev` |
+| Database | `lunavisia` |
+| Username | `lunavisia` |
+| Password | `lunavisia-dev` |
 | Database host inside Docker | `luna-visia-db` |
 
 Environment overrides remain available when needed, but they are not required for local development.
@@ -189,9 +189,9 @@ Adminer is available at <http://127.0.0.1:19080> after starting the stack. Use:
 
 - System: `PostgreSQL`
 - Server: `postgres`
-- Username: `lunavault`
-- Password: your `POSTGRES_PASSWORD`, or `lunavault-dev` when unset
-- Database: `lunavault`
+- Username: `lunavisia`
+- Password: your `POSTGRES_PASSWORD`, or `lunavisia-dev` when unset
+- Database: `lunavisia`
 
 Adminer is bound to localhost and reaches PostgreSQL only through the private Luna Visia network. The database port itself remains unavailable from the host.
 

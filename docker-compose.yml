@@ -3,9 +3,9 @@ services:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
-      POSTGRES_DB: lunavault
-      POSTGRES_USER: lunavault
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lunavault-dev}
+      POSTGRES_DB: lunavisia
+      POSTGRES_USER: lunavisia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lunavisia-dev}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -13,7 +13,7 @@ services:
         aliases:
           - luna-visia-db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lunavault -d lunavault"]
+      test: ["CMD-SHELL", "pg_isready -U lunavisia -d lunavisia"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,7 +71,7 @@ services:
     working_dir: /workspace/mcp
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@luna-visia-db:5432/lunavault
+      DATABASE_URL: postgresql://lunavisia:${POSTGRES_PASSWORD:-lunavisia-dev}@luna-visia-db:5432/lunavisia
       IMAGE_DIR: /data/images
       OLLAMA_URL: http://luna-visia-ollama:11434
       VISION_MODEL: ${VISION_MODEL:-qwen2.5vl:7b}
@@ -152,7 +152,9 @@ services:
 
 volumes:
   postgres_data:
+    name: luna_visia_postgres_data
   image_data:
+    name: luna_visia_image_data
   ollama_data:
 
 networks:
