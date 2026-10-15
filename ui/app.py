@@ -19,7 +19,7 @@ from tabs.view_page import ViewImagesPage
 class LunaVisiaApp:
     """Compose and render the Luna Visia Streamlit interface."""
 
-    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavisia_logo_10kb.png"
+    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavisia_logo.png"
     SECTION_KEY = "gallery-section"
     LAST_SECTION_KEY = "gallery-section-last"
 
@@ -35,9 +35,7 @@ class LunaVisiaApp:
     def source_revision(cls) -> str:
         source_root = Path(__file__).resolve().parent
         source_files = sorted(source_root.rglob("*.py"))
-        source_files.extend(
-            [source_root / ".streamlit" / "config.toml", cls.LOGO_PATH]
-        )
+        source_files.extend([source_root / ".streamlit" / "config.toml", cls.LOGO_PATH])
         digest = hashlib.sha256()
         for source_file in source_files:
             if source_file.is_file():
