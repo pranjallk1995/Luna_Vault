@@ -279,8 +279,20 @@ def apply_app_styles(theme: str = "dark") -> None:
             background:transparent!important;
             box-shadow:none!important;
         }
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button[aria-pressed="true"] {
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]),
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) p,
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) span {
+            color:var(--lv-muted)!important;
+            -webkit-text-fill-color:var(--lv-muted)!important;
+        }
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) {
             background:rgba(255,255,255,.12)!important;
+        }
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]),
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) p,
+        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) span {
+            color:var(--lv-text)!important;
+            -webkit-text-fill-color:var(--lv-text)!important;
         }
         button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
         div[data-baseweb="input"],div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
