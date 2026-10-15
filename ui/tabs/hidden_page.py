@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 import streamlit as st
 
-from tabs.shared import LunaVaultUI
+from tabs.shared import LunaVisiaUI
 from tabs.view_page import ViewPage
 
 
@@ -84,7 +84,7 @@ class HiddenGallery(ViewPage):
         )
 
 
-class HiddenPage(LunaVaultUI):
+class HiddenPage(LunaVisiaUI):
     """Render authenticated hidden-image management without an Add Images tab."""
 
     def _authenticate(self) -> bool:

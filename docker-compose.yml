@@ -9,9 +9,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      lunavault_network:
+      lunavisia_network:
         aliases:
-          - luna-vault-db
+          - luna-visia-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lunavault -d lunavault"]
       interval: 10s
@@ -22,13 +22,13 @@ services:
     image: adminer:latest
     restart: unless-stopped
     environment:
-      ADMINER_DEFAULT_SERVER: luna-vault-db
+      ADMINER_DEFAULT_SERVER: luna-visia-db
     ports:
       - "127.0.0.1:19080:8080"
     networks:
-      lunavault_network:
+      lunavisia_network:
         aliases:
-          - luna-vault-adminer
+          - luna-visia-adminer
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,9 +42,9 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     networks:
-      lunavault_network:
+      lunavisia_network:
         aliases:
-          - luna-vault-ollama
+          - luna-visia-ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -55,13 +55,13 @@ services:
     image: ollama/ollama:latest
     command: ["pull", "${VISION_MODEL:-qwen2.5vl:7b}"]
     environment:
-      OLLAMA_HOST: http://luna-vault-ollama:11434
+      OLLAMA_HOST: http://luna-visia-ollama:11434
     volumes:
       - ollama_data:/root/.ollama
     networks:
-      lunavault_network:
+      lunavisia_network:
         aliases:
-          - luna-vault-model-pull
+          - luna-visia-model-pull
     depends_on:
       ollama:
         condition: service_healthy
@@ -71,11 +71,11 @@ services:
     working_dir: /workspace/mcp
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@luna-vault-db:5432/lunavault
+      DATABASE_URL: postgresql://lunavault:${POSTGRES_PASSWORD:-lunavault-dev}@luna-visia-db:5432/lunavault
       IMAGE_DIR: /data/images
-      OLLAMA_URL: http://luna-vault-ollama:11434
+      OLLAMA_URL: http://luna-visia-ollama:11434
       VISION_MODEL: ${VISION_MODEL:-qwen2.5vl:7b}
-      LUNAVAULT_PUBLIC_BASE_URL: ${LUNAVAULT_PUBLIC_BASE_URL:-}
+      LUNAVISIA_PUBLIC_BASE_URL: ${LUNAVISIA_PUBLIC_BASE_URL:-}
     expose:
       - "8000"
     ports:
@@ -99,9 +99,9 @@ services:
         - action: rebuild
           path: ./mcp/Dockerfile
     networks:
-      lunavault_network:
+      lunavisia_network:
         aliases:
-          - luna-vault-mcp
+          - luna-visia-mcp
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,8 +121,8 @@ services:
     restart: unless-stopped
     environment:
       IMAGE_DIR: /data/images
-      MCP_URL: http://luna-vault-mcp:8000/mcp
-      LUNAVAULT_API_URL: http://luna-vault-mcp:8000
+      MCP_URL: http://luna-visia-mcp:8000/mcp
+      LUNAVISIA_API_URL: http://luna-visia-mcp:8000
     ports:
       - "127.0.0.1:18501:8501"
     volumes:
@@ -143,9 +143,9 @@ services:
         - action: rebuild
           path: ./ui/Dockerfile
     networks:
-      lunavault_network:
+      lunavisia_network:
         aliases:
-          - luna-vault-ui
+          - luna-visia-ui
     depends_on:
       mcp:
         condition: service_healthy
@@ -156,5 +156,6 @@ volumes:
   ollama_data:
 
 networks:
-  lunavault_network:
+  lunavisia_network:
+    name: luna_visia_lunavisia_network
     driver: bridge

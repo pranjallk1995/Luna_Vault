@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from app.main import (
     DISPLAY_MAX_EDGE,
     MAX_FETCH_IMAGES,
-    LunaVaultMCP,
+    LunaVisiaMCP,
     _display_images,
     _image_source_base64,
     _selected_visible_paths,
@@ -80,7 +80,7 @@ class ImageDeliveryTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_health_route_reports_service_status(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
 
         with TestClient(server.mcp.streamable_http_app()) as client:
             response = client.get("/health")
@@ -88,11 +88,11 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
-            {"status": "ok", "service": "luna-vault"},
+            {"status": "ok", "service": "luna-visia"},
         )
 
     def test_upload_image_delegates_chat_payload_to_ingestion(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("upload_image")
         result = asyncio.run(
             tool.run({"name": "chat.png", "content_base64": "aW1hZ2U="})
@@ -102,7 +102,7 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
 
     def test_view_image_returns_displayable_image_data(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("view_image")
         result = asyncio.run(tool.run({"name": "one.png"}))
         content = result.to_image_content()
@@ -110,7 +110,7 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertTrue(base64.b64decode(content.data))
 
     def test_get_image_url_returns_visible_https_location(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("get_image_url")
 
         result = asyncio.run(tool.run({"name": "one.png"}))
@@ -127,7 +127,7 @@ class ImageDeliveryTests(unittest.TestCase):
         )
 
     def test_set_public_base_url_updates_urls_from_chat(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("set_public_base_url")
 
         result = asyncio.run(
@@ -138,7 +138,7 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertEqual(result["updated_image_count"], 2)
 
     def test_upload_image_accepts_image_data_url(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("upload_image")
         result = asyncio.run(
             tool.run(
@@ -160,7 +160,7 @@ class ImageDeliveryTests(unittest.TestCase):
             )
 
     def test_set_favorite_images_adds_and_removes_from_chat(self) -> None:
-        server = LunaVaultMCP(self.vault, object())
+        server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("set_favorite_images")
 
         added = asyncio.run(

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from tabs.shared import LunaVaultUI
+from tabs.shared import LunaVisiaUI
 from tabs.view_page import ViewPage
 
 
@@ -35,7 +35,7 @@ class FavoriteGallery(ViewPage):
                 st.rerun()
 
 
-class FavoritesPage(LunaVaultUI):
+class FavoritesPage(LunaVisiaUI):
     """Render Favorite images without a secondary Add Images tab."""
 
     def render(

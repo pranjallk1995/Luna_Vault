@@ -1,4 +1,4 @@
-"""Transactional image lifecycle service for Luna Vault."""
+"""Transactional image lifecycle service for Luna Visia."""
 
 import base64
 import binascii
@@ -55,10 +55,10 @@ class ImageVaultService:
         return normalized
 
     def configured_public_base_url(self) -> str:
-        """Return the mutable public origin stored in Luna Vault configuration."""
+        """Return the mutable public origin stored in Luna Visia configuration."""
         public_base_url = self.repository.public_base_url()
         if not public_base_url:
-            raise RuntimeError("The Luna Vault public base URL is not configured.")
+            raise RuntimeError("The Luna Visia public base URL is not configured.")
         return public_base_url
 
     def update_public_base_url(self, public_base_url: str) -> dict[str, Any]:

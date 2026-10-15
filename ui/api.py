@@ -1,4 +1,4 @@
-"""UI-facing client for Luna Vault's HTTP routes."""
+"""UI-facing client for Luna Visia's HTTP routes."""
 
 from typing import Any
 from urllib.parse import quote
@@ -8,7 +8,7 @@ import httpx
 from config import UIConfig
 
 
-class LunaVaultAPI:
+class LunaVisiaAPI:
     """Keep backend routes and HTTP details out of Streamlit views."""
 
     def __init__(self, config: UIConfig) -> None:

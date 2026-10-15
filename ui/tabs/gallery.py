@@ -1,4 +1,4 @@
-"""Reusable selectable gallery structure for Luna Vault collection tabs."""
+"""Reusable selectable gallery structure for Luna Visia collection tabs."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -7,12 +7,12 @@ from typing import Any
 import streamlit as st
 from st_img_selector import st_img_selector
 
-from tabs.shared import LunaVaultUI
+from tabs.shared import LunaVisiaUI
 
 ItemActions = Callable[[Any, Path, int, int], None]
 
 
-class SelectableGallery(LunaVaultUI):
+class SelectableGallery(LunaVisiaUI):
     """Render paginated image selection shared by collection workflows."""
 
     def render_collection_search(self, label: str, state_key: str) -> str:

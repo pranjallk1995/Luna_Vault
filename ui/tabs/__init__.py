@@ -1,1 +1,1 @@
-"""Luna Vault Streamlit page modules."""
+"""Luna Visia Streamlit page modules."""

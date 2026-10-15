@@ -1,4 +1,4 @@
-"""Visible-image gallery page for Luna Vault."""
+"""Visible-image gallery page for Luna Visia."""
 
 import html
 from pathlib import Path
@@ -8,7 +8,7 @@ import streamlit as st
 from PIL import Image
 from st_img_selector import st_img_selector
 
-from tabs.shared import LunaVaultUI
+from tabs.shared import LunaVisiaUI
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -21,7 +21,7 @@ def image_file_facts(image_path: str, modified_ns: int) -> tuple[int, int, int]:
     return path.stat().st_size, width, height
 
 
-class ViewPage(LunaVaultUI):
+class ViewPage(LunaVisiaUI):
     """Render the searchable visible-image gallery and item actions."""
 
     def delete_image(self, image_path: Path) -> None:
@@ -227,7 +227,7 @@ class ViewPage(LunaVaultUI):
         if not vault_images:
             st.session_state.view_page = 0
             st.session_state.pending_view_delete = None
-            st.info("No images are currently stored in Luna Vault.")
+            st.info("No images are currently stored in Luna Visia.")
             return
 
         vault_names = {path.name for path in vault_images}
@@ -573,7 +573,7 @@ class ViewPage(LunaVaultUI):
 
 
 # ---------------- View Images Page ----------------
-class ViewImagesPage(LunaVaultUI):
+class ViewImagesPage(LunaVisiaUI):
     """Coordinate metadata search with the visible gallery."""
 
     def render(

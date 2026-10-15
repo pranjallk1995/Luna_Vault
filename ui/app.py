@@ -1,4 +1,4 @@
-"""Luna Vault Streamlit application entry point."""
+"""Luna Visia Streamlit application entry point."""
 
 import hashlib
 import inspect
@@ -11,21 +11,21 @@ from config import UIConfig
 from styles import apply_app_styles, render_app_header
 from tabs.favorites_page import FavoritesPage
 from tabs.hidden_page import HiddenPage
-from tabs.shared import LunaVaultUI
+from tabs.shared import LunaVisiaUI
 from tabs.upload_page import UploadPage
 from tabs.view_page import ViewImagesPage
 
 
-class LunaVaultApp:
-    """Compose and render the Luna Vault Streamlit interface."""
+class LunaVisiaApp:
+    """Compose and render the Luna Visia Streamlit interface."""
 
-    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavault_logo_10kb.png"
+    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavisia_logo_10kb.png"
     SECTION_KEY = "gallery-section"
     LAST_SECTION_KEY = "gallery-section-last"
 
     def __init__(self) -> None:
         self.config = UIConfig.from_env()
-        self.shared_ui = LunaVaultUI(self.config)
+        self.shared_ui = LunaVisiaUI(self.config)
 
     @staticmethod
     def set_gallery_view(mode: str) -> None:
@@ -51,7 +51,7 @@ class LunaVaultApp:
         previous_revision = st.session_state.get("ui_source_revision")
         st.session_state.ui_source_revision = revision
         if previous_revision is not None and previous_revision != revision:
-            st.toast("Luna Vault updated", icon=":material/refresh:")
+            st.toast("Luna Visia updated", icon=":material/refresh:")
 
     def render_header(self) -> bool:
         brand_column, controls_column = st.columns(
@@ -164,7 +164,7 @@ class LunaVaultApp:
     @classmethod
     def run(cls) -> None:
         st.set_page_config(
-            page_title="Luna Vault",
+            page_title="Luna Visia",
             page_icon=Image.open(cls.LOGO_PATH),
             layout="wide",
             initial_sidebar_state="collapsed",
@@ -173,4 +173,4 @@ class LunaVaultApp:
 
 
 if __name__ == "__main__":
-    LunaVaultApp.run()
+    LunaVisiaApp.run()

@@ -73,7 +73,7 @@ class MetadataRepository:
         }
 
     def initialize(self) -> None:
-        """Create or upgrade the idempotent Luna Vault database schema."""
+        """Create or upgrade the idempotent Luna Visia database schema."""
         with psycopg.connect(self.database_url, autocommit=True) as connection:
             connection.execute(SCHEMA_SQL)
 

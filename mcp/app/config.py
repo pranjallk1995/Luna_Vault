@@ -1,4 +1,4 @@
-"""Validated runtime configuration for the Luna Vault backend."""
+"""Validated runtime configuration for the Luna Visia backend."""
 
 import os
 from dataclasses import dataclass, field
@@ -77,12 +77,16 @@ class AppConfig:
         if not vision_model:
             raise RuntimeError("VISION_MODEL cannot be blank.")
         image_dir = Path(os.getenv("IMAGE_DIR", "/data/images"))
-        public_base_url = os.getenv("LUNAVAULT_PUBLIC_BASE_URL", "").strip().rstrip("/")
+        public_base_url = (
+            os.getenv("LUNAVISIA_PUBLIC_BASE_URL")
+            or os.getenv("LUNAVAULT_PUBLIC_BASE_URL")
+            or ""
+        ).strip().rstrip("/")
         if public_base_url:
             public_url = urlparse(public_base_url)
             if public_url.scheme != "https" or not public_url.netloc:
                 raise RuntimeError(
-                    "LUNAVAULT_PUBLIC_BASE_URL must be a valid HTTPS URL."
+                    "LUNAVISIA_PUBLIC_BASE_URL must be a valid HTTPS URL."
                 )
         return cls(
             image_dir=image_dir,

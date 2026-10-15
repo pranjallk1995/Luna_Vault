@@ -1,4 +1,4 @@
-"""Shared visual styling for the Luna Vault Streamlit application."""
+"""Shared visual styling for the Luna Visia Streamlit application."""
 
 import base64
 from pathlib import Path
@@ -7,7 +7,7 @@ import streamlit as st
 
 
 def apply_app_styles(theme: str = "dark") -> None:
-    """Apply the selected Luna Vault palette without altering widget behavior."""
+    """Apply the selected Luna Visia palette without altering widget behavior."""
     palette = (
         "--lv-bg:#f5f7fb;--lv-surface:#ffffff;--lv-control:#eef2f8;"
         "--lv-control-hover:#e2e8f0;--lv-text:#111827;--lv-muted:#64748b;"
@@ -344,9 +344,9 @@ def render_app_header(logo_path: Path) -> None:
     st.markdown(
         f"""
         <div class="lv-header">
-            <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Vault logo">
+            <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Visia logo">
             <div>
-                <h1 class="lv-title">Luna Vault</h1>
+                <h1 class="lv-title">Luna Visia</h1>
                 <p class="lv-subtitle">Private AI-managed image storage</p>
             </div>
         </div>

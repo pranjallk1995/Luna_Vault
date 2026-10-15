@@ -1,4 +1,4 @@
-# Luna Vault
+# Luna Visia
 
 ![Docker required](https://img.shields.io/badge/Docker-required-2496ED?logo=docker&logoColor=white)
 ![Docker Compose v2](https://img.shields.io/badge/Docker_Compose-v2-2496ED?logo=docker&logoColor=white)
@@ -8,18 +8,18 @@
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
 ## Generate, Manipulate, Search and Store images of your choice using LLMs
 
-> **Work in progress:** Luna Vault is a local-first and desktop first image store and search under active development.
+> **Work in progress:** Luna Visia is a local-first and desktop first image store and search under active development.
 
-Luna Vault is an AI-powered, private image library that runs locally. Its Ollama
+Luna Visia is an AI-powered, private image library that runs locally. Its Ollama
 vision model analyzes every upload automatically, creates a concise caption and
 searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the indexed
 collection available to AI assistants of your choice (ChatGPT here) for fast search and safe image-management
 operations without repeatedly opening every original image.
 
-> **GPU requirement for the default model:** Luna Vault uses `qwen2.5vl:7b` by default. Its download is larger than 6 GB, and the default GPU configuration requires an NVIDIA GPU with at least 8 GB of VRAM. Follow [Start](#start) to use the default setup. To select a different model—or use the slower CPU fallback—see [Vision model](#vision-model); model overrides can be placed in a local `.env` file.
+> **GPU requirement for the default model:** Luna Visia uses `qwen2.5vl:7b` by default. Its download is larger than 6 GB, and the default GPU configuration requires an NVIDIA GPU with at least 8 GB of VRAM. Follow [Start](#start) to use the default setup. To select a different model—or use the slower CPU fallback—see [Vision model](#vision-model); model overrides can be placed in a local `.env` file.
 
 <p align="center">
-  <img src="docs/assets/luna-vault-ai-assistant.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
+  <img src="docs/assets/luna-visia-ai-assistant.png" alt="AI assistant querying Luna Visia alongside its image gallery" width="900">
 </p>
 
 The Streamlit interface lets you upload, search, view, favorite, download, hide,
@@ -28,14 +28,14 @@ while the password-protected hidden vault stays separate from normal galleries
 and searches.
 
 <p align="center">
-  <img src="docs/assets/luna-vault-image-view.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
+  <img src="docs/assets/luna-visia-image-view.png" alt="AI assistant querying Luna Visia alongside its image gallery" width="900">
 </p>
 
-An MCP-connected AI assistant can query Luna Vault's generated captions and tags,
+An MCP-connected AI assistant can query Luna Visia's generated captions and tags,
 answer collection-level questions, and return matching filenames without visually
 reprocessing every original image.
 
-Luna Vault is also well suited to bulk image manipulation and editing workflows.
+Luna Visia is also well suited to bulk image manipulation and editing workflows.
 Its MCP tools let an AI assistant find and act on groups of images while keeping
 the stored files and their searchable metadata synchronized.
 
@@ -46,13 +46,13 @@ provide a focused collection for images you return to often.
 The hidden vault keeps private images behind a password and supports adding,
 viewing, downloading, restoring, searching, and deleting them separately.
 
-Connect Luna Vault's `/mcp` endpoint to the ChatGPT app as a custom MCP server.
+Connect Luna Visia's `/mcp` endpoint to the ChatGPT app as a custom MCP server.
 Once connected, you can ask ChatGPT to search the vault, inspect image metadata,
 display previews, download selected images, and manage the visible collection
 through natural-language requests.
 
 <p align="center">
-  <img src="docs/assets/chatgpt-mcp-interaction.png" alt="ChatGPT interacting with Luna Vault through MCP" width="760">
+  <img src="docs/assets/chatgpt-mcp-interaction.png" alt="ChatGPT interacting with Luna Visia through MCP" width="760">
 </p>
 
 ## Current features
@@ -99,14 +99,14 @@ through natural-language requests.
 | Vision | Ollama | Local caption and tag generation with `qwen2.5vl:7b` by default |
 | Database | PostgreSQL 17 | Metadata, full-text search indexes, Favorites, hidden state, configuration, and credential hashes |
 | Storage | Docker volumes | Original images, PostgreSQL data, and downloaded Ollama models |
-| Database UI | Adminer | Local inspection of the Luna Vault PostgreSQL database |
-| Network | `lunavault_network` | Private service discovery using project-specific aliases |
+| Database UI | Adminer | Local inspection of the Luna Visia PostgreSQL database |
+| Network | `lunavisia_network` | Private service discovery using project-specific aliases |
 
 The main service flow is:
 
 ```text
 Streamlit UI or MCP client
-        -> Luna Vault MCP/API
+        -> Luna Visia MCP/API
         -> image volume + PostgreSQL metadata
         -> Ollama vision analysis when image content changes
 ```
@@ -115,7 +115,7 @@ The UI reads original images from `image_data` as read-only. All mutations go th
 
 ## Start
 
-Start Luna Vault:
+Start Luna Visia:
 
 ```sh
 docker compose up --build
@@ -131,17 +131,17 @@ The built-in development credentials work without creating a `.env` file:
 
 | Setting | Default |
 | --- | --- |
-| Database | `lunavault` |
-| Username | `lunavault` |
+| Database | `lunavault` (legacy storage identifier) |
+| Username | `lunavault` (legacy storage identifier) |
 | Password | `lunavault-dev` |
-| Database host inside Docker | `luna-vault-db` |
+| Database host inside Docker | `luna-visia-db` |
 
 Environment overrides remain available when needed, but they are not required for local development.
 
 Docker is not started automatically by repository setup or validation.
 
 Compose automatically pulls the configured vision model into the persistent
-`ollama_data` volume before starting MCP. Open Luna Vault at
+`ollama_data` volume before starting MCP. Open Luna Visia at
 <http://127.0.0.1:18501>. The Hidden Images tab lets you create a password and an
 exactly 8-digit reset PIN; both are salted and hashed in PostgreSQL.
 
@@ -173,7 +173,7 @@ finish before it starts.
 Add the following to the Codex `config.toml` in `.codex` directory in root:
 
 ```toml
-[mcp_servers.lunavault]
+[mcp_servers.lunavisia]
 url = "http://127.0.0.1:18000/mcp"
 enabled = true
 required = false
@@ -193,11 +193,11 @@ Adminer is available at <http://127.0.0.1:19080> after starting the stack. Use:
 - Password: your `POSTGRES_PASSWORD`, or `lunavault-dev` when unset
 - Database: `lunavault`
 
-Adminer is bound to localhost and reaches PostgreSQL only through the private Luna Vault network. The database port itself remains unavailable from the host.
+Adminer is bound to localhost and reaches PostgreSQL only through the private Luna Visia network. The database port itself remains unavailable from the host.
 
 ## MCP tools
 
-Luna Vault exposes these tools to connected MCP clients:
+Luna Visia exposes these tools to connected MCP clients:
 
 ### Browse and retrieve
 

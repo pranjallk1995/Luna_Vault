@@ -1,1 +1,1 @@
-"""Luna Vault MCP application package."""
+"""Luna Visia MCP application package."""

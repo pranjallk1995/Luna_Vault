@@ -7,7 +7,7 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageOps
 
-from api import LunaVaultAPI
+from api import LunaVisiaAPI
 from config import UIConfig
 
 
@@ -31,13 +31,13 @@ def cached_gallery_thumbnail(
         )
 
 
-class LunaVaultUI:
+class LunaVisiaUI:
     """Provide shared state, image, pagination, and gallery UI behavior."""
 
     def __init__(self, config: UIConfig) -> None:
         """Initialize this component and its required dependencies."""
         self.config = config
-        self.api = LunaVaultAPI(config)
+        self.api = LunaVisiaAPI(config)
         self.image_dir = config.image_dir
         self.image_dir.mkdir(parents=True, exist_ok=True)
 

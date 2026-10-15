@@ -1,4 +1,4 @@
-"""FastMCP tools and HTTP routes for Luna Vault."""
+"""FastMCP tools and HTTP routes for Luna Visia."""
 
 import base64
 import ipaddress
@@ -172,21 +172,21 @@ def _zip_resource(paths: list[Path]) -> EmbeddedResource:
     return EmbeddedResource(
         type="resource",
         resource=BlobResourceContents(
-            uri="file:///luna-vault/luna-vault-images.zip",
+            uri="file:///luna-visia/luna-visia-images.zip",
             mimeType="application/zip",
             blob=base64.b64encode(archive.getvalue()).decode("ascii"),
         ),
     )
 
 
-class LunaVaultMCP:
+class LunaVisiaMCP:
     """Register MCP tools and authenticated UI-facing HTTP routes."""
 
     def __init__(self, vault: ImageVaultService, auth: HiddenVaultAuth) -> None:
         """Initialize this component and its required dependencies."""
         self.vault = vault
         self.auth = auth
-        self.mcp = FastMCP("Luna Vault", host="0.0.0.0", port=8000)
+        self.mcp = FastMCP("Luna Visia", host="0.0.0.0", port=8000)
         self._register_tools()
         self._register_routes()
 
@@ -212,7 +212,7 @@ class LunaVaultMCP:
 
         @self.mcp.tool()
         def set_public_base_url(public_base_url: str) -> dict[str, Any]:
-            """Change the public HTTPS origin used by all Luna Vault image URLs.
+            """Change the public HTTPS origin used by all Luna Visia image URLs.
 
             Supply the full externally reachable base, including any path prefix,
             for example https://device.tailnet.ts.net/vault. Every stored image URL
@@ -354,9 +354,9 @@ class LunaVaultMCP:
 
         @self.mcp.custom_route("/health", methods=["GET"])
         async def health_route(request: Request) -> JSONResponse:
-            """Confirm that the Luna Vault HTTP service is available."""
+            """Confirm that the Luna Visia HTTP service is available."""
             del request
-            return JSONResponse({"status": "ok", "service": "luna-vault"})
+            return JSONResponse({"status": "ok", "service": "luna-visia"})
 
         @self.mcp.custom_route("/api/metadata", methods=["GET"])
         async def metadata_route(request: Request) -> JSONResponse:
@@ -563,7 +563,7 @@ class LunaVaultMCP:
                 return self._error(error)
 
     def run(self) -> None:
-        """Serve Luna Vault over the streamable HTTP transport."""
+        """Serve Luna Visia over the streamable HTTP transport."""
         app = self.mcp.streamable_http_app()
         uvicorn.run(
             app,
@@ -572,8 +572,8 @@ class LunaVaultMCP:
         )
 
 
-class LunaVaultApplication:
-    """Compose and own the concrete Luna Vault service dependencies."""
+class LunaVisiaApplication:
+    """Compose and own the concrete Luna Visia service dependencies."""
 
     def __init__(self) -> None:
         self.config = AppConfig.from_env()
@@ -583,7 +583,7 @@ class LunaVaultApplication:
         self.vault = ImageVaultService(
             self.config, self.repository, self.analyzer
         )
-        self.server = LunaVaultMCP(
+        self.server = LunaVisiaMCP(
             self.vault, HiddenVaultAuth(self.repository, self.config)
         )
 
@@ -591,7 +591,7 @@ class LunaVaultApplication:
         self.server.run()
 
 
-application = LunaVaultApplication()
+application = LunaVisiaApplication()
 server = application.server
 mcp = server.mcp
 

@@ -1,4 +1,4 @@
-"""Upload page for Luna Vault."""
+"""Upload page for Luna Visia."""
 
 import base64
 import time
@@ -10,10 +10,10 @@ from uuid import uuid4
 import httpx
 import streamlit as st
 
-from tabs.shared import LunaVaultUI
+from tabs.shared import LunaVisiaUI
 
 
-class UploadPage(LunaVaultUI):
+class UploadPage(LunaVisiaUI):
     """Render uploads and persist AI-generated metadata results."""
 
     def _post_with_progress(
