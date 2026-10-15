@@ -366,7 +366,7 @@ class ViewPage(LunaVisiaUI):
             @st.dialog(self.display_name(clicked_image.name), width="large")
             def show_full_size_image() -> None:
                 """Render the selected image with its stored descriptive metadata."""
-                st.image(clicked_image, width="stretch")
+                st.image(self.create_full_preview(clicked_image), width="stretch")
                 metadata = metadata_by_name.get(clicked_image.name) or {}
                 caption_value = str(metadata.get("caption") or "")
                 tags = list(metadata.get("tags") or [])

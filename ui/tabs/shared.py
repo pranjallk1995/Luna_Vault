@@ -31,6 +31,17 @@ def cached_gallery_thumbnail(
         )
 
 
+@st.cache_data(show_spinner=False, max_entries=64)
+def cached_full_preview(image_path: str, modified_ns: int) -> Image.Image:
+    """Decode a stored image so Streamlit need not serve its filesystem path."""
+    del modified_ns  # Included in the cache key to invalidate replaced images.
+
+    with Image.open(image_path) as source:
+        preview = ImageOps.exif_transpose(source)
+        preview.load()
+        return preview.copy()
+
+
 class LunaVisiaUI:
     """Provide shared state, image, pagination, and gallery UI behavior."""
 
@@ -165,6 +176,11 @@ class LunaVisiaUI:
             image_path.stat().st_mtime_ns,
             self.config.card_size,
         )
+
+    @staticmethod
+    def create_full_preview(image_path: Path) -> Image.Image:
+        """Return a decoded image suitable for a full-size Streamlit preview."""
+        return cached_full_preview(str(image_path), image_path.stat().st_mtime_ns)
 
     @staticmethod
     def change_gallery_page(

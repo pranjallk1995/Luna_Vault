@@ -1,6 +1,8 @@
-# Luna UI color palette
+# Luna UI style guide
 
-Shared dark palette used by Luna Visia and Luna Vita.
+Shared visual reference for Luna Visia and Luna Vita.
+
+## Color palette
 
 | Role | Color |
 | --- | --- |
@@ -30,3 +32,13 @@ important foreground content use the primary text color.
 The shared font weights are `720` for the app title and `400` for the header
 subtitle. Luna typography variables use the `--luna-text-*` prefix to avoid
 collisions with framework theme variables.
+
+## Logo assets
+
+| App | Asset | Format | Resolution | File size | Desktop display | Mobile display |
+| --- | --- | --- | --- | --- | --- | --- |
+| Luna Vita | `ui/assets/lunavita_logo.png` | PNG, 8-bit RGBA | 1254 x 1254 px | 637,054 bytes | 5.75rem x 4.5rem | 4.25rem x 3.5rem |
+| Luna Visia | `ui/assets/lunavisia_logo.png` | PNG, 8-bit RGBA | 1254 x 1254 px | 616,506 bytes | 5.75rem x 4.5rem | 4rem x 3.4rem |
+
+Both logos render with `object-fit: contain` so their square source images keep
+their aspect ratio within the header bounds.
