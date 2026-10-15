@@ -24,9 +24,8 @@ class LunaStyle:
             "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
             "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
         )
-        st.markdown(
+        st.html(
             f"<style>:root {{{palette}}}</style>",
-            unsafe_allow_html=True,
         )
         st.markdown(
             """
