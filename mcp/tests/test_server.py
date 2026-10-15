@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image as PillowImage
+from starlette.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
@@ -77,6 +78,18 @@ class ImageDeliveryTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def test_health_route_reports_service_status(self) -> None:
+        server = LunaVaultMCP(self.vault, object())
+
+        with TestClient(server.mcp.streamable_http_app()) as client:
+            response = client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"status": "ok", "service": "luna-vault"},
+        )
 
     def test_upload_image_delegates_chat_payload_to_ingestion(self) -> None:
         server = LunaVaultMCP(self.vault, object())

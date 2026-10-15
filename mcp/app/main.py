@@ -352,6 +352,12 @@ class LunaVaultMCP:
         """Register HTTP routes used by the Streamlit interface."""
         vault, auth = self.vault, self.auth
 
+        @self.mcp.custom_route("/health", methods=["GET"])
+        async def health_route(request: Request) -> JSONResponse:
+            """Confirm that the Luna Vault HTTP service is available."""
+            del request
+            return JSONResponse({"status": "ok", "service": "luna-vault"})
+
         @self.mcp.custom_route("/api/metadata", methods=["GET"])
         async def metadata_route(request: Request) -> JSONResponse:
             """Return visible image metadata to the UI."""

@@ -6,7 +6,7 @@
 ![Ollama included](https://img.shields.io/badge/Ollama-included-111111?logo=ollama&logoColor=white)
 ![PostgreSQL included](https://img.shields.io/badge/PostgreSQL-included-4169E1?logo=postgresql&logoColor=white)
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
-## Generate, Manipulate, Search and Store images of your choice using LLMs.
+## Generate, Manipulate, Search and Store images of your choice using LLMs
 
 > **Work in progress:** Luna Vault is a local-first and desktop first image store and search under active development.
 
@@ -53,18 +53,104 @@ through natural-language requests.
   <img src="docs/assets/chatgpt-mcp-interaction.png" alt="ChatGPT interacting with Luna Vault through MCP" width="760">
 </p>
 
-## Run
+## Current features
 
-Optionally set `POSTGRES_PASSWORD`, then build and start:
+### AI-assisted image ingestion
+
+- Upload images through the Streamlit UI or MCP tools.
+- Generate a concise caption and normalized searchable tags with the local Ollama vision model.
+- Preserve the content hash, source size, analysis model, timestamps, and optional public URL in PostgreSQL.
+- Replace image content and refresh its metadata as one coordinated operation.
+- Backfill missing or stale metadata for files imported outside the normal upload flow.
+
+### Visible image library
+
+- Search filenames, AI captions, and tags without reopening original image files.
+- Browse natural-aspect thumbnails with six images per page and full-size viewing.
+- Download individual images or fetch selected originals as a ZIP through MCP.
+- Rename images safely while keeping filenames, metadata, and generated URLs synchronized.
+- Edit captions and tags without rerunning vision analysis.
+- Delete image files and their metadata together.
+
+### Favorites and hidden images
+
+- Maintain a persisted Favorites collection for visible images.
+- Protect hidden images behind a password and exactly eight-digit reset PIN.
+- Store only salted password and PIN hashes.
+- View, edit, download, restore, or permanently delete hidden images through authenticated UI routes.
+- Exclude hidden images from public galleries, searches, previews, URLs, and MCP tools.
+
+### Local AI and assistant access
+
+- Run PostgreSQL, Ollama, MCP/API, Streamlit, and Adminer as one local Docker Compose stack.
+- Expose searchable image operations to compatible assistants through Streamable HTTP MCP.
+- Keep Ollama and PostgreSQL private to the Compose network while binding UI, MCP, and Adminer ports to localhost.
+- Use an optional NVIDIA GPU for vision analysis, with a slower CPU fallback.
+
+## Architecture
+
+| Component | Technology | Purpose |
+| --- | --- | --- |
+| UI | Streamlit | Upload, search, galleries, Favorites, downloads, and authenticated hidden-image workflows |
+| HTTP and MCP | FastMCP + Starlette routes | Assistant tools plus UI-facing image, metadata, Favorites, and hidden-vault endpoints |
+| Image service | Python + Pillow | Validated ingestion, previews, ZIP delivery, safe file operations, and metadata coordination |
+| Vision | Ollama | Local caption and tag generation with `qwen2.5vl:7b` by default |
+| Database | PostgreSQL 17 | Metadata, full-text search indexes, Favorites, hidden state, configuration, and credential hashes |
+| Storage | Docker volumes | Original images, PostgreSQL data, and downloaded Ollama models |
+| Database UI | Adminer | Local inspection of the Luna Vault PostgreSQL database |
+| Network | `lunavault_network` | Private service discovery using project-specific aliases |
+
+The main service flow is:
+
+```text
+Streamlit UI or MCP client
+        -> Luna Vault MCP/API
+        -> image volume + PostgreSQL metadata
+        -> Ollama vision analysis when image content changes
+```
+
+The UI reads original images from `image_data` as read-only. All mutations go through the MCP/API service so file and database changes remain coordinated.
+
+## Start
+
+Start Luna Vault:
 
 ```sh
 docker compose up --build
 ```
 
+Open:
+
+- UI: <http://127.0.0.1:18501>
+- Service health: <http://127.0.0.1:18000/health>
+- MCP endpoint: <http://127.0.0.1:18000/mcp>
+
+The built-in development credentials work without creating a `.env` file:
+
+| Setting | Default |
+| --- | --- |
+| Database | `lunavault` |
+| Username | `lunavault` |
+| Password | `lunavault-dev` |
+| Database host inside Docker | `luna-vault-db` |
+
+Environment overrides remain available when needed, but they are not required for local development.
+
+Docker is not started automatically by repository setup or validation.
+
 Compose automatically pulls the configured vision model into the persistent
 `ollama_data` volume before starting MCP. Open Luna Vault at
 <http://127.0.0.1:18501>. The Hidden Images tab lets you create a password and an
 exactly 8-digit reset PIN; both are salted and hashed in PostgreSQL.
+
+Check GPU use while analysis is active:
+
+```sh
+docker compose exec ollama ollama ps
+nvidia-smi
+```
+
+If NVIDIA passthrough is unavailable, remove `gpus: all` from the Ollama service to use the CPU fallback. Captioning will still work but will be slower.
 
 ## Vision model
 
@@ -80,6 +166,20 @@ service is used. The `ollama-pull` Compose service downloads the selected model
 once into the persistent `ollama_data` volume, and MCP waits for that step to
 finish before it starts.
 
+## Codex MCP configuration (optionasl)
+
+Add the following to the Codex `config.toml` in `.codex` directory in root:
+
+```toml
+[mcp_servers.lunavault]
+url = "http://127.0.0.1:18000/mcp"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+```
+
+A task that was already open before a new tool was added may need to be reloaded or reopened for tool discovery.
 
 ## Database UI
 
@@ -93,33 +193,35 @@ Adminer is available at <http://127.0.0.1:19080> after starting the stack. Use:
 
 Adminer is bound to localhost and reaches PostgreSQL only through the private Luna Vault network. The database port itself remains unavailable from the host.
 
-Check GPU use while analysis is active:
-
-```sh
-docker compose exec ollama ollama ps
-nvidia-smi
-```
-
-If NVIDIA passthrough is unavailable, remove `gpus: all` from the Ollama service to use the CPU fallback. Captioning will still work but will be slower.
-
 ## MCP tools
 
 Luna Vault exposes these tools to connected MCP clients:
 
+### Browse and retrieve
+
 - `list_images` - list visible images with captions and tags.
 - `view_image` - return a visible image.
 - `fetch_images` - display selected visible images in chat or return them as a ZIP.
+- `get_image_url` - return the stored public URL for one visible image when a base URL is configured.
+
+### Add and modify images
+
 - `add_image` - programmatically add Base64 image data and generate metadata.
 - `upload_image` - upload a file attached to the user's ChatGPT message through ChatGPT's native file parameter, then generate metadata.
-- `get_image_url` - return the stored public HTTPS URL for one visible image.
-- `set_public_base_url` - update the persisted Funnel origin and regenerate all stored image URLs.
 - `modify_image` - replace a visible image and refresh its metadata.
-- `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
 - `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.
-- `set_favorite_images` - add or remove visible images from Favorites using exact filenames.
 - `remove_image` - delete a visible image and its metadata.
+
+### Metadata, search, and collections
+
+- `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
+- `set_favorite_images` - add or remove visible images from Favorites using exact filenames.
 - `search_images` - search captions and tags without opening original images.
 - `backfill_metadata` - generate missing or stale metadata for imported files.
+
+### URL configuration
+
+- `set_public_base_url` - update the optional persisted public base URL and regenerate stored image URLs.
 
 Hidden-vault password and session endpoints are UI-only custom routes, not MCP tools.
 
@@ -143,7 +245,25 @@ returns `{query, normalized_query, count, results[]}`, where each result contain
 
 Run or resume an idempotent metadata backfill through the MCP `backfill_metadata` tool after importing images outside the normal ingestion flow.
 
-## Development
+## Data model
+
+### `image_metadata`
+
+Stores one row per image: filename, byte size, SHA-256 content hash, AI caption, normalized tag array, analysis model, creation and update timestamps, hidden state, favorite state, and optional public URL. A weighted PostgreSQL `tsvector` indexes captions and tags, with additional indexes for tags, hashes, hidden images, and Favorites.
+
+The filename is the primary key and matches the image in the persistent `image_data` volume. File mutations and metadata updates are coordinated by `ImageVaultService` so a failed operation does not intentionally leave half-applied state.
+
+### `vault_security`
+
+Stores the hidden vault's singleton security record: password salt and hash, reset-PIN salt and hash, PBKDF iteration count, and update timestamp. Plaintext passwords and reset PINs are never stored.
+
+### `vault_config`
+
+Stores the singleton optional public base URL used to generate per-image URLs. Updating it refreshes the derived URL for every metadata record without changing the image files.
+
+The idempotent schema in `mcp/app/database.py` runs when the MCP service starts and applies additive upgrades for existing installations.
+
+## Development workflow
 
 Use Docker Compose Watch to keep the running development stack aligned with local
 source changes:
@@ -166,116 +286,6 @@ If it exits or its terminal closes, restart it with `docker compose watch`.
 If the stack is already running, attach the watcher with `docker compose watch`.
 An already-open Codex task may still need to be reopened after an MCP tool-schema
 change so the client refreshes its discovered tool catalog.
-
-### Add Luna Vault as a plugin with a stable Tailscale Funnel address
-
-Tailscale Funnel can expose the local MCP service to ChatGPT over public HTTPS.
-Unlike a temporary tunnel, the node receives a predictable `*.ts.net` hostname
-that can be reused whenever the WSL node, Tailscale, and the MCP container are
-running. Funnel is required here because Tailscale Serve is available only
-inside your tailnet. Run these commands inside WSL 2.
-
-Install Tailscale, authenticate the WSL node, and confirm it is connected:
-
-```sh
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-tailscale status
-```
-
-Open the sign-in URL printed by `tailscale up`, authenticate, and add the WSL
-node to your tailnet. If Tailscale also runs on Windows, avoid running both the
-Windows and WSL clients at the same time; Tailscale recommends using only one of
-them. For this setup, Funnel must run from WSL because it proxies the WSL-bound
-MCP port.
-
-In the [Tailscale Machines](https://login.tailscale.com/admin/machines) page,
-give this WSL node a stable name such as `luna-vault`. Changing or deleting the
-node later changes or removes its public address.
-
-Start Luna Vault and wait for MCP to become healthy:
-
-```sh
-cd ~/Luna_Vault
-docker compose up --build --watch
-```
-
-In another WSL terminal, enable a persistent background Funnel that proxies the
-host-bound MCP port:
-
-```sh
-sudo tailscale funnel --bg http://127.0.0.1:18000
-tailscale funnel status
-```
-
-The first Funnel command may open an approval page to enable Funnel, MagicDNS,
-HTTPS certificates, and the required tailnet policy. Its output shows a stable
-public URL similar to:
-
-```text
-https://luna-vault.example-tailnet.ts.net
-```
-
-Append `/mcp` when configuring the plugin:
-
-```text
-https://luna-vault.example-tailnet.ts.net/mcp
-```
-
-If HTTPS port `8443` is unused, you can optionally expose the Streamlit UI as a
-separate Funnel endpoint:
-
-```sh
-tailscale funnel --bg --https=8443 http://127.0.0.1:18501
-```
-
-The intended public endpoints are:
-
-| Service | Public endpoint |
-| --- | --- |
-| MCP | `https://luna-vault.example-tailnet.ts.net/mcp` |
-| Web UI | `https://luna-vault.example-tailnet.ts.net:8443/` |
-
-The UI address works only while Funnel is configured successfully, Tailscale is
-connected, and the UI container is listening on port `18501`. This command is
-optional and is not run automatically by Docker Compose.
-
-> **Security warning:** Funnel makes the entire UI publicly accessible. Luna
-> Vault does not currently require authentication for its main visible-image UI,
-> including viewing, downloading, modifying, and deleting visible images. Do not
-> enable the UI Funnel until UI-wide authentication is implemented. Tailscale
-> Funnel encrypts transport but does not authenticate visitors.
-
-In ChatGPT, open **Plugins**, select **+**, and choose **Add custom MCP server**.
-Use these settings:
-
-- Name: `Luna Vault`
-- Server URL: your complete `https://...ts.net/mcp` URL
-- Authentication: **No authentication**
-
-Accept the risk confirmation, choose **Create as a plugin**, install the new
-personal plugin, then select it with `@Luna Vault` in a new Work chat. Use the
-full `/mcp` endpoint; the Funnel root URL is not the MCP endpoint.
-
-The `--bg` configuration survives terminal closure and resumes after Tailscale
-restarts, but the endpoint works only while the WSL node is running, Tailscale
-is connected, and the Luna Vault MCP container is available. Check it with
-`tailscale funnel status`. Disable the public endpoint with:
-
-```sh
-sudo tailscale funnel reset
-```
-
-Funnel is available on Tailscale's free plan but is currently a beta feature.
-Luna Vault currently exposes this MCP endpoint without server-level
-authentication, so anyone who obtains the URL can call tools that modify or
-delete images. Keep the address private, disable Funnel when it is not needed,
-and add MCP-compatible OAuth before treating it as a production deployment.
-
-References: [Tailscale on WSL 2](https://tailscale.com/docs/install/windows/wsl2),
-[Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel),
-[Funnel CLI](https://tailscale.com/docs/reference/tailscale-cli/funnel), and the
-[OpenAI plugin quickstart](https://developers.openai.com/plugins/quickstart).
 
 ### UI modules
 
