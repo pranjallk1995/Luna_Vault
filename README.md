@@ -168,7 +168,7 @@ service is used. The `ollama-pull` Compose service downloads the selected model
 once into the persistent `ollama_data` volume, and MCP waits for that step to
 finish before it starts.
 
-## Codex MCP configuration (optionasl)
+## Codex MCP configuration (optional)
 
 Add the following to the Codex `config.toml` in `.codex` directory in root:
 
