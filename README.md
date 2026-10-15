@@ -16,6 +16,8 @@ searchable tags, and stores that metadata in PostgreSQL. FastMCP makes the index
 collection available to AI assistants of your choice (ChatGPT here) for fast search and safe image-management
 operations without repeatedly opening every original image.
 
+> **GPU requirement for the default model:** Luna Vault uses `qwen2.5vl:7b` by default. Its download is larger than 6 GB, and the default GPU configuration requires an NVIDIA GPU with at least 8 GB of VRAM. Follow [Start](#start) to use the default setup. To select a different model—or use the slower CPU fallback—see [Vision model](#vision-model); model overrides can be placed in a local `.env` file.
+
 <p align="center">
   <img src="docs/assets/luna-vault-ai-assistant.png" alt="AI assistant querying Luna Vault alongside its image gallery" width="900">
 </p>
