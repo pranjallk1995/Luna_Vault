@@ -18,11 +18,13 @@ class LunaStyle:
             "--lv-control-hover:#e2e8f0;--lv-text:#111827;--lv-muted:#64748b;"
             "--lv-border:rgba(71,85,105,.20);--lv-strong:rgba(99,102,241,.48);"
             "--lv-accent:#6366f1;--lv-soft:rgba(99,102,241,.12);"
+            "--luna-text-title:clamp(1.65rem,3vw,2.15rem);--luna-text-subtitle:.78rem;--luna-text-body:.88rem;--luna-text-small:.72rem;"
             if theme == "light"
             else "--lv-bg:#111111;--lv-surface:rgba(255,255,255,.055);--lv-control:rgba(255,255,255,.07);"
             "--lv-control-hover:rgba(255,255,255,.12);--lv-text:#f5f5f5;--lv-muted:#a3a3a3;"
             "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
             "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
+            "--luna-text-title:clamp(1.65rem,3vw,2.15rem);--luna-text-subtitle:.78rem;--luna-text-body:.88rem;--luna-text-small:.72rem;"
         )
         st.html(
             f"<style>:root {{{palette}}}</style>",
@@ -89,8 +91,8 @@ class LunaStyle:
             #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
             .lv-header { display:flex; align-items:center; gap:1rem; min-height:4.5rem; margin-bottom:1rem; }
             .lv-mark { display:block; flex:0 0 5.75rem; width:5.75rem; height:4.5rem; border:0; border-radius:0; object-fit:contain; object-position:center; box-shadow:none; }
-            .lv-title { margin:0; color:var(--lv-text); font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
-            .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
+            .lv-title { margin:0; color:var(--lv-text); font-family:inherit; font-size:var(--luna-text-title); font-weight:720; letter-spacing:-.04em; line-height:1; }
+            .stApp .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:var(--luna-text-subtitle); font-weight:400; }
             div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
             div[data-testid="stTabs"] [data-baseweb="tab"] { height:2.55rem; padding:0 1rem; border-radius:.65rem; color:var(--lv-muted); }
             div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:var(--lv-text); }
