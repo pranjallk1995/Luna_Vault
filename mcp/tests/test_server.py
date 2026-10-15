@@ -13,7 +13,7 @@ from PIL import Image as PillowImage
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from app.server import (
+from app.main import (
     DISPLAY_MAX_EDGE,
     MAX_FETCH_IMAGES,
     LunaVaultMCP,

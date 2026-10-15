@@ -294,7 +294,7 @@ References: [Tailscale on WSL 2](https://tailscale.com/docs/install/windows/wsl2
 
 ### MCP modules
 
-- `mcp/app/server.py` - FastMCP server entry point and the public image-management tools.
+- `mcp/app/main.py` - FastMCP server entry point and the public image-management tools.
 - `mcp/app/vault.py` - image ingestion, metadata backfill, safe file operations, and search orchestration.
 - `mcp/app/vision.py` - Ollama vision requests plus validation and normalization of captions and tags.
 - `mcp/app/database.py` - PostgreSQL schema setup and metadata/search-index persistence and queries.
