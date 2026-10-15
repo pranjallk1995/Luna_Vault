@@ -85,15 +85,25 @@ class LunaVisiaApp:
         tab_keys = ["view", "favorites", "hidden"]
         navigation_options = {
             "options": tab_keys,
-            "default": "view",
             "format_func": dict(zip(tab_keys, labels)).__getitem__,
             "key": self.SECTION_KEY,
             "on_change": self.preserve_section_selection,
             "label_visibility": "collapsed",
         }
+        if self.SECTION_KEY not in st.session_state:
+            navigation_options["default"] = "view"
         if "width" in inspect.signature(st.segmented_control).parameters:
             navigation_options["width"] = "stretch"
-        selected = st.container(key="gallery_navigation").segmented_control(
+        navigation_container = st.container(key="gallery_navigation")
+        active_section = st.session_state.get(
+            self.SECTION_KEY,
+            st.session_state.get(self.LAST_SECTION_KEY, "view"),
+        )
+        navigation_container.markdown(
+            f'<span class="lv-selected-{active_section}"></span>',
+            unsafe_allow_html=True,
+        )
+        selected = navigation_container.segmented_control(
             "Gallery section",
             **navigation_options,
         )

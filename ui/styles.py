@@ -24,16 +24,68 @@ class LunaStyle:
             "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
             "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
         )
-        st.markdown(f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True)
+        st.markdown(
+            f"<style>:root {{{palette}}}</style>",
+            unsafe_allow_html=True,
+        )
         st.markdown(
             """
             <style>
-
             .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(255,255,255,.07),transparent 30rem),var(--lv-bg); }
             .block-container { max-width:1180px; padding-top:1.35rem; padding-bottom:3rem; }
             .stApp p,.stApp label,.stApp [data-testid="stMarkdownContainer"] { color:var(--lv-text); }
             div[data-testid="stHorizontalBlock"]:has(.lv-header) { align-items:center; margin-bottom:.55rem; }
-            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button { white-space:nowrap; }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button {
+                min-height:2.625rem!important; height:2.625rem;
+                padding:.45rem .9rem!important;
+                border:1px solid var(--lv-border)!important;
+                border-radius:.5rem!important;
+                background:var(--lv-control)!important;
+                color:var(--lv-text)!important;
+                box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+                white-space:nowrap;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button p,
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button span,
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button svg {
+                color:var(--lv-text)!important;
+                fill:currentColor!important;
+                -webkit-text-fill-color:var(--lv-text)!important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button:hover {
+                border-color:var(--lv-strong)!important;
+                background:var(--lv-control-hover)!important;
+                color:var(--lv-text)!important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button[data-testid="stBaseButton-primary"] {
+                border-color:var(--lv-strong)!important;
+                background:var(--lv-soft)!important;
+                color:var(--lv-text)!important;
+            }
+            .st-key-use_grid_view button,
+            .st-key-use_list_view button {
+                border:1px solid var(--lv-border)!important;
+                background:var(--lv-control)!important;
+                color:var(--lv-text)!important;
+            }
+            .st-key-use_grid_view button p,
+            .st-key-use_grid_view button span,
+            .st-key-use_list_view button p,
+            .st-key-use_list_view button span {
+                color:var(--lv-text)!important;
+                -webkit-text-fill-color:var(--lv-text)!important;
+            }
+            .st-key-use_grid_view button:is([kind="primary"],[data-testid="stBaseButton-primary"]),
+            .st-key-use_list_view button:is([kind="primary"],[data-testid="stBaseButton-primary"]) {
+                border-color:var(--lv-strong)!important;
+                background:var(--lv-soft)!important;
+                color:var(--lv-text)!important;
+            }
+            .st-key-use_grid_view button:hover,
+            .st-key-use_list_view button:hover {
+                border-color:var(--lv-strong)!important;
+                background:var(--lv-control-hover)!important;
+            }
             header[data-testid="stHeader"] { background:transparent; }
             #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
             .lv-header { display:flex; align-items:center; gap:1rem; min-height:4.5rem; margin-bottom:1rem; }
@@ -254,25 +306,58 @@ class LunaStyle:
                 color:#ff3b5c!important;
             }
             /* Keep navigation segments visually separated from one another. */
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] {
+                overflow:visible!important;
+                border-color:var(--lv-border)!important;
+                background:var(--lv-surface)!important;
+            }
             .st-key-gallery_navigation div[data-testid="stButtonGroup"] button {
+                position:relative;
                 margin-inline:.16rem!important;
                 padding-inline:1rem!important;
-                border:0!important;
-                background:transparent!important;
+                border:1px solid transparent!important;
+                background:var(--lv-control)!important;
+                color:var(--lv-muted)!important;
                 box-shadow:none!important;
+                transition:border-color 140ms ease,background 140ms ease,transform 140ms ease!important;
             }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]),
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) p,
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) span {
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([kind="primary"]):not([data-testid="stBaseButton-primary"]),
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([kind="primary"]):not([data-testid="stBaseButton-primary"]) p,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([kind="primary"]):not([data-testid="stBaseButton-primary"]) span {
                 color:var(--lv-muted)!important;
                 -webkit-text-fill-color:var(--lv-muted)!important;
             }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) {
-                background:rgba(255,255,255,.12)!important;
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:hover {
+                border-color:var(--lv-strong)!important;
+                background:var(--lv-control-hover)!important;
+                color:var(--lv-text)!important;
+                transform:translateY(-1px)!important;
             }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]),
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) p,
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) span {
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]) {
+                border:2px solid var(--lv-accent)!important;
+                background:var(--lv-soft)!important;
+                box-shadow:0 0 0 1px var(--lv-strong)!important;
+            }
+            .st-key-gallery_navigation:has(.lv-selected-view) div[data-testid="stButtonGroup"] button:nth-of-type(1),
+            .st-key-gallery_navigation:has(.lv-selected-favorites) div[data-testid="stButtonGroup"] button:nth-of-type(2),
+            .st-key-gallery_navigation:has(.lv-selected-hidden) div[data-testid="stButtonGroup"] button:nth-of-type(3) {
+                border:1px solid var(--lv-strong)!important;
+                background:var(--lv-control-hover)!important;
+                color:var(--lv-text)!important;
+                box-shadow:0 0 0 1px var(--lv-border)!important;
+            }
+            .lv-selected-view,.lv-selected-favorites,.lv-selected-hidden { display:none!important; }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[kind="primary"],[data-testid="stBaseButton-primary"]),
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[kind="primary"],[data-testid="stBaseButton-primary"]) p,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[kind="primary"],[data-testid="stBaseButton-primary"]) span,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:hover p,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:hover span {
+                color:var(--lv-text)!important;
+                -webkit-text-fill-color:var(--lv-text)!important;
+            }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]),
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]) p,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]) span {
                 color:var(--lv-text)!important;
                 -webkit-text-fill-color:var(--lv-text)!important;
             }
@@ -309,10 +394,40 @@ class LunaStyle:
                 div[data-testid="stTabs"] [data-baseweb="tab"] { flex:1 1 0; justify-content:center; padding:0 .55rem; }
                 div[data-testid="stHorizontalBlock"] { flex-direction:row!important; flex-wrap:nowrap!important; gap:.5rem!important; }
                 div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { min-width:0!important; }
-                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button { padding-inline:.55rem!important; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button {
+                    overflow:visible!important;
+                    padding-inline:.55rem!important;
+                }
                 .st-key-gallery_navigation div[data-testid="stButtonGroup"] button p { font-size:0!important; line-height:0!important; }
                 .st-key-gallery_navigation div[data-testid="stButtonGroup"] button span[data-testid="stIconMaterial"],
                 .st-key-gallery_navigation div[data-testid="stButtonGroup"] button .material-symbols-rounded { font-size:1.25rem!important; line-height:1!important; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button::after {
+                    position:absolute;
+                    top:calc(100% + .45rem);
+                    left:50%;
+                    z-index:50;
+                    padding:.28rem .48rem;
+                    border:1px solid var(--lv-border);
+                    border-radius:.4rem;
+                    background:var(--lv-surface);
+                    color:var(--lv-text);
+                    box-shadow:0 8px 20px rgba(0,0,0,.28);
+                    font-size:.72rem;
+                    line-height:1rem;
+                    white-space:nowrap;
+                    opacity:0;
+                    pointer-events:none;
+                    transform:translate(-50%,-.2rem);
+                    transition:opacity 120ms ease,transform 120ms ease;
+                }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:nth-of-type(1)::after { content:"View Images"; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:nth-of-type(2)::after { content:"Favorite Images"; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:nth-of-type(3)::after { content:"Hidden Images"; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:hover::after,
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:focus-visible::after {
+                    opacity:1;
+                    transform:translate(-50%,0);
+                }
             }
             </style>
             """,
