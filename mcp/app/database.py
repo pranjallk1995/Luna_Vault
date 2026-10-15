@@ -4,7 +4,7 @@ from typing import Any
 
 import psycopg
 
-from config import AppConfig
+from .config import AppConfig
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS image_metadata (

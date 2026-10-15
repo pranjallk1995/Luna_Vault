@@ -48,32 +48,18 @@ class HiddenGallery(ViewPage):
                 width="stretch",
                 key=f"{key_prefix}_unhide_{generation}_{image_path.name}",
             ):
-                response = httpx.post(
-                    f"{self.config.api_url}/api/hidden/restore",
-                    json={"names": [image_path.name]},
-                    headers={
-                        **self.config.api_headers,
-                        "X-Hidden-Vault-Token": st.session_state.hidden_auth_token,
-                    },
-                    timeout=30.0,
+                self.api.restore_hidden_images(
+                    [image_path.name], st.session_state.hidden_auth_token
                 )
-                response.raise_for_status()
                 st.session_state.hidden_generation += 1
                 st.session_state.view_generation += 1
                 st.rerun()
 
     def delete_image(self, image_path: Path) -> None:
         """Permanently delete one authenticated hidden image."""
-        response = httpx.post(
-            f"{self.config.api_url}/api/hidden/delete",
-            json={"names": [image_path.name]},
-            headers={
-                **self.config.api_headers,
-                "X-Hidden-Vault-Token": st.session_state.hidden_auth_token,
-            },
-            timeout=30.0,
+        self.api.delete_hidden_images(
+            [image_path.name], st.session_state.hidden_auth_token
         )
-        response.raise_for_status()
         st.session_state.pending_view_delete = None
         st.session_state.hidden_generation += 1
         st.session_state.view_generation += 1
@@ -93,42 +79,16 @@ class HiddenGallery(ViewPage):
             payload["add_tags"] = add_tags
         if remove_tags is not None:
             payload["remove_tags"] = remove_tags
-        response = httpx.post(
-            f"{self.config.api_url}/api/hidden/images/{image_path.name}/metadata",
-            json=payload,
-            headers={
-                **self.config.api_headers,
-                "X-Hidden-Vault-Token": st.session_state.hidden_auth_token,
-            },
-            timeout=30.0,
+        return self.api.update_hidden_metadata(
+            image_path.name, payload, st.session_state.hidden_auth_token
         )
-        response.raise_for_status()
-        return response.json()
 
 
 class HiddenPage(LunaVaultUI):
     """Render authenticated hidden-image management without an Add Images tab."""
 
-    def _post(self, route: str, payload: dict, authenticated: bool = False) -> dict:
-        headers = self.config.api_headers.copy()
-        if authenticated:
-            headers["X-Hidden-Vault-Token"] = st.session_state.hidden_auth_token
-        response = httpx.post(
-            f"{self.config.api_url}{route}", json=payload, headers=headers, timeout=30.0
-        )
-        if response.status_code == 401 and authenticated:
-            st.session_state.hidden_auth_token = None
-        response.raise_for_status()
-        return response.json()
-
     def _authenticate(self) -> bool:
-        status = httpx.get(
-            f"{self.config.api_url}/api/hidden/status",
-            headers=self.config.api_headers,
-            timeout=10.0,
-        )
-        status.raise_for_status()
-        configured = status.json()["configured"]
+        configured = self.api.hidden_status()
         if st.session_state.hidden_auth_token:
             return True
         if not configured:
@@ -144,7 +104,7 @@ class HiddenPage(LunaVaultUI):
                     st.error("Passwords do not match.")
                 else:
                     try:
-                        result = self._post("/api/hidden/setup", {"password": password, "pin": pin})
+                        result = self.api.hidden_setup(password, pin)
                         st.session_state.hidden_auth_token = result["token"]
                         st.rerun()
                     except httpx.HTTPStatusError as error:
@@ -156,7 +116,7 @@ class HiddenPage(LunaVaultUI):
             submitted = st.form_submit_button("Unlock", width="stretch")
         if submitted:
             try:
-                result = self._post("/api/hidden/login", {"password": password})
+                result = self.api.hidden_login(password)
                 st.session_state.hidden_auth_token = result["token"]
                 st.rerun()
             except httpx.HTTPStatusError:
@@ -172,7 +132,7 @@ class HiddenPage(LunaVaultUI):
                     st.error("Passwords do not match.")
                 else:
                     try:
-                        result = self._post("/api/hidden/reset", {"pin": pin, "new_password": new_password})
+                        result = self.api.hidden_reset(pin, new_password)
                         st.session_state.hidden_auth_token = result["token"]
                         st.rerun()
                     except httpx.HTTPStatusError as error:
@@ -190,23 +150,17 @@ class HiddenPage(LunaVaultUI):
         header.success("Hidden vault unlocked")
         if logout_column.button("Lock", icon=":material/lock:", width="stretch"):
             try:
-                self._post("/api/hidden/logout", {}, authenticated=True)
+                self.api.hidden_logout(st.session_state.hidden_auth_token)
             finally:
                 st.session_state.hidden_auth_token = None
                 st.rerun()
-        response = httpx.get(
-            f"{self.config.api_url}/api/hidden/images",
-            headers={
-                **self.config.api_headers,
-                "X-Hidden-Vault-Token": st.session_state.hidden_auth_token,
-            },
-            timeout=10.0,
-        )
-        if response.status_code == 401:
-            st.session_state.hidden_auth_token = None
-            st.rerun()
-        response.raise_for_status()
-        metadata = response.json()["images"]
+        try:
+            metadata = self.api.hidden_images(st.session_state.hidden_auth_token)
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code == 401:
+                st.session_state.hidden_auth_token = None
+                st.rerun()
+            raise
         hidden_metadata = {item["name"]: item for item in metadata}
         hidden_images = [
             path for path in self.list_vault_images() if path.name in hidden_metadata

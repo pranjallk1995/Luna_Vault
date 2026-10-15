@@ -7,6 +7,7 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageOps
 
+from api import LunaVaultAPI
 from config import UIConfig
 
 
@@ -36,6 +37,7 @@ class LunaVaultUI:
     def __init__(self, config: UIConfig) -> None:
         """Initialize this component and its required dependencies."""
         self.config = config
+        self.api = LunaVaultAPI(config)
         self.image_dir = config.image_dir
         self.image_dir.mkdir(parents=True, exist_ok=True)
 

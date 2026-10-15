@@ -278,6 +278,7 @@ References: [Tailscale on WSL 2](https://tailscale.com/docs/install/windows/wsl2
 ### UI modules
 
 - `ui/app.py` - the small Streamlit entry point: creates the four tabs, loads image metadata, and passes data to each page.
+- `ui/api.py` - centralizes UI-facing HTTP routes, authentication headers, timeouts, and response handling.
 - `ui/config.py` - reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
 - `ui/styles.py` - maintains the shared dark visual system, component spacing, and control styling.
 - `ui/tabs/shared.py` - shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
@@ -293,13 +294,13 @@ References: [Tailscale on WSL 2](https://tailscale.com/docs/install/windows/wsl2
 
 ### MCP modules
 
-- `mcp/server.py` - FastMCP server entry point and the public image-management tools.
-- `mcp/vault.py` - image ingestion, metadata backfill, safe file operations, and search orchestration.
-- `mcp/vision.py` - Ollama vision requests plus validation and normalization of captions and tags.
-- `mcp/database.py` - PostgreSQL schema setup and metadata/search-index persistence and queries.
-- `mcp/security.py` - password and PIN handling plus hidden-vault authentication and sessions.
-- `mcp/config.py` - reads and validates MCP settings, including database, image, Ollama, and vision-model configuration.
-- `mcp/__init__.py` - marks the MCP directory as a Python package.
+- `mcp/app/server.py` - FastMCP server entry point and the public image-management tools.
+- `mcp/app/vault.py` - image ingestion, metadata backfill, safe file operations, and search orchestration.
+- `mcp/app/vision.py` - Ollama vision requests plus validation and normalization of captions and tags.
+- `mcp/app/database.py` - PostgreSQL schema setup and metadata/search-index persistence and queries.
+- `mcp/app/security.py` - password and PIN handling plus hidden-vault authentication and sessions.
+- `mcp/app/config.py` - reads and validates MCP settings, including database, image, Ollama, and vision-model configuration.
+- `mcp/app/__init__.py` - marks the MCP application directory as a Python package.
 - `mcp/tests/` - automated tests for vault behavior, metadata processing, and security safeguards.
 - `mcp/requirements.txt` - Python dependencies used by the MCP container.
 - `mcp/Dockerfile` - builds the MCP container image.

@@ -8,7 +8,7 @@ import httpx
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
-from config import AppConfig
+from .config import AppConfig
 
 
 class ImageAnalysis(BaseModel):

@@ -7,8 +7,8 @@ import secrets
 import threading
 import time
 
-from config import AppConfig
-from database import MetadataRepository
+from .config import AppConfig
+from .database import MetadataRepository
 
 
 class HiddenVaultAuth:

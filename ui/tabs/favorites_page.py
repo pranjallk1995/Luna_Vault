@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import httpx
 import streamlit as st
 
 from tabs.shared import LunaVaultUI
@@ -43,13 +42,7 @@ class FavoritesPage(LunaVaultUI):
         self, visible_images: list[Path], metadata_by_name: dict[str, dict]
     ) -> None:
         """Render Favorites with the View Images layout and interactions."""
-        response = httpx.get(
-            f"{self.config.api_url}/api/favorites",
-            headers=self.config.api_headers,
-            timeout=10.0,
-        )
-        response.raise_for_status()
-        favorite_names = {item["name"] for item in response.json()["images"]}
+        favorite_names = {item["name"] for item in self.api.favorites()}
         favorite_images = [
             path for path in visible_images if path.name in favorite_names
         ]

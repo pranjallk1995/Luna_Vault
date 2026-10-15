@@ -6,8 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from config import AppConfig
-from security import HiddenVaultAuth
+from app.config import AppConfig
+from app.security import HiddenVaultAuth
 
 
 class FakeSecurityRepository:

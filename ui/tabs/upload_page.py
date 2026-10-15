@@ -16,29 +16,24 @@ from tabs.shared import LunaVaultUI
 class UploadPage(LunaVaultUI):
     """Render uploads and persist AI-generated metadata results."""
 
-    @staticmethod
     def _post_with_progress(
-        api_url: str,
+        self,
         stored_name: str,
         display_name: str,
         content,
         progress,
         progress_value: float,
-    ) -> httpx.Response:
+    ) -> dict:
         """Keep progress feedback alive during the blocking vision request."""
-        payload = {
-            "name": stored_name,
-            "content_base64": base64.b64encode(content).decode("ascii"),
-        }
+        encoded_content = base64.b64encode(content).decode("ascii")
         started_at = time.monotonic()
         tick = 0
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             request = executor.submit(
-                httpx.post,
-                f"{api_url}/api/images",
-                json=payload,
-                timeout=360.0,
+                self.api.upload_image,
+                stored_name,
+                encoded_content,
             )
             while not request.done():
                 elapsed = int(time.monotonic() - started_at)
@@ -53,10 +48,7 @@ class UploadPage(LunaVaultUI):
                 tick += 1
                 time.sleep(0.5)
 
-            response = request.result()
-
-        response.raise_for_status()
-        return response
+            return request.result()
 
     def upload_images(self, uploads: list) -> None:
         """Upload new files and retain the metadata returned by ingestion."""
@@ -86,8 +78,7 @@ class UploadPage(LunaVaultUI):
                     ),
                 )
                 try:
-                    response = self._post_with_progress(
-                        self.config.api_url,
+                    metadata = self._post_with_progress(
                         stored_name,
                         safe_name,
                         content,
@@ -103,7 +94,6 @@ class UploadPage(LunaVaultUI):
                     written_bytes += len(content)
                     continue
 
-                metadata = response.json()
                 written_bytes += len(content)
                 progress.progress(
                     written_bytes / total_bytes if total_bytes else 1.0,
@@ -122,8 +112,7 @@ class UploadPage(LunaVaultUI):
         stored_name = f"{uuid4().hex}_{failed['name']}"
         progress = st.progress(0.0, text="Preparing image for analysis...")
         try:
-            response = self._post_with_progress(
-                self.config.api_url,
+            metadata = self._post_with_progress(
                 stored_name,
                 failed["name"],
                 failed["content"],
@@ -133,7 +122,7 @@ class UploadPage(LunaVaultUI):
             progress.progress(1.0, text=f"Analysis complete for {failed['name']}.")
             st.session_state.saved_uploads.add(upload_id)
             st.session_state.uploaded_images.append(
-                {"upload_id": upload_id, **response.json()}
+                {"upload_id": upload_id, **metadata}
             )
             del st.session_state.failed_uploads[upload_id]
         finally:

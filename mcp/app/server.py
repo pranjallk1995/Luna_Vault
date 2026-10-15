@@ -19,11 +19,11 @@ from PIL import ImageDraw, ImageOps
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from config import AppConfig
-from database import MetadataRepository
-from security import HiddenVaultAuth
-from vault import ImageVaultService
-from vision import OllamaVisionAnalyzer
+from .config import AppConfig
+from .database import MetadataRepository
+from .security import HiddenVaultAuth
+from .vault import ImageVaultService
+from .vision import OllamaVisionAnalyzer
 
 MAX_FETCH_IMAGES = 20
 MAX_FETCH_BYTES = 50 * 1024 * 1024
@@ -535,18 +535,28 @@ class LunaVaultMCP:
         )
 
 
-def build_server() -> LunaVaultMCP:
-    """Compose validated configuration and concrete service dependencies."""
-    config = AppConfig.from_env()
-    repository = MetadataRepository(config)
-    repository.initialize()
-    analyzer = OllamaVisionAnalyzer(config)
-    vault = ImageVaultService(config, repository, analyzer)
-    return LunaVaultMCP(vault, HiddenVaultAuth(repository, config))
+class LunaVaultApplication:
+    """Compose and own the concrete Luna Vault service dependencies."""
+
+    def __init__(self) -> None:
+        self.config = AppConfig.from_env()
+        self.repository = MetadataRepository(self.config)
+        self.repository.initialize()
+        self.analyzer = OllamaVisionAnalyzer(self.config)
+        self.vault = ImageVaultService(
+            self.config, self.repository, self.analyzer
+        )
+        self.server = LunaVaultMCP(
+            self.vault, HiddenVaultAuth(self.repository, self.config)
+        )
+
+    def run(self) -> None:
+        self.server.run()
 
 
-server = build_server()
+application = LunaVaultApplication()
+server = application.server
 mcp = server.mcp
 
 if __name__ == "__main__":
-    server.run()
+    application.run()

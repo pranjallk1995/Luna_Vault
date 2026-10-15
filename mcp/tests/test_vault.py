@@ -11,9 +11,9 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from config import AppConfig
-from vault import ImageVaultService
-from vision import ImageAnalysis, OllamaVisionAnalyzer
+from app.config import AppConfig
+from app.vault import ImageVaultService
+from app.vision import ImageAnalysis, OllamaVisionAnalyzer
 
 
 class FakeRepository:

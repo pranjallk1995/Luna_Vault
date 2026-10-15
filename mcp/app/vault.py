@@ -12,9 +12,9 @@ from uuid import uuid4
 from PIL import Image as PillowImage
 from PIL import UnidentifiedImageError
 
-from config import AppConfig
-from database import MetadataRepository
-from vision import OllamaVisionAnalyzer
+from .config import AppConfig
+from .database import MetadataRepository
+from .vision import OllamaVisionAnalyzer
 
 
 class ImageVaultService:

@@ -26,10 +26,7 @@ class ViewPage(LunaVaultUI):
 
     def delete_image(self, image_path: Path) -> None:
         """Delete one visible image through the normal vault lifecycle."""
-        response = httpx.delete(
-            f"{self.config.api_url}/api/images/{image_path.name}", timeout=30.0
-        )
-        response.raise_for_status()
+        self.api.delete_image(image_path.name)
         retained_uploads = []
         for image in st.session_state.uploaded_images:
             if image["name"] == image_path.name:
@@ -44,13 +41,7 @@ class ViewPage(LunaVaultUI):
 
     def set_favorite(self, image_path: Path, favorite: bool) -> None:
         """Persist one image's favorite state."""
-        response = httpx.post(
-            f"{self.config.api_url}/api/favorites",
-            json={"names": [image_path.name], "favorite": favorite},
-            headers=self.config.api_headers,
-            timeout=30.0,
-        )
-        response.raise_for_status()
+        self.api.set_favorites([image_path.name], favorite)
         st.session_state.favorite_generation += 1
         st.session_state.add_favorite_generation += 1
         st.session_state.view_generation += 1
@@ -70,14 +61,7 @@ class ViewPage(LunaVaultUI):
             payload["add_tags"] = add_tags
         if remove_tags is not None:
             payload["remove_tags"] = remove_tags
-        response = httpx.post(
-            f"{self.config.api_url}/api/images/{image_path.name}/metadata",
-            json=payload,
-            headers=self.config.api_headers,
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        return response.json()
+        return self.api.update_image_metadata(image_path.name, payload)
 
     @st.fragment
     def render_favorite_overlay(
@@ -251,13 +235,7 @@ class ViewPage(LunaVaultUI):
             st.session_state.pending_view_delete = None
         if st.session_state.pending_view_hide not in vault_names:
             st.session_state.pending_view_hide = None
-        favorite_response = httpx.get(
-            f"{self.config.api_url}/api/favorites",
-            headers=self.config.api_headers,
-            timeout=10.0,
-        )
-        favorite_response.raise_for_status()
-        favorite_names = {item["name"] for item in favorite_response.json()["images"]}
+        favorite_names = {item["name"] for item in self.api.favorites()}
         generation = st.session_state.view_generation
         columns_per_row = self.gallery_column_count()
         current_page, page_images = self.paginated_images(
@@ -367,18 +345,9 @@ class ViewPage(LunaVaultUI):
                         st.error("Unlock Hidden Images before hiding an image.")
                         return
                     try:
-                        response = httpx.post(
-                            f"{self.config.api_url}/api/hidden/hide",
-                            json={"names": [name]},
-                            headers={
-                                **self.config.api_headers,
-                                "X-Hidden-Vault-Token": (
-                                    st.session_state.hidden_auth_token
-                                ),
-                            },
-                            timeout=30.0,
+                        self.api.hide_images(
+                            [name], st.session_state.hidden_auth_token
                         )
-                        response.raise_for_status()
                         st.session_state.pending_view_hide = None
                         st.session_state.view_generation += 1
                         st.session_state.hidden_generation += 1
