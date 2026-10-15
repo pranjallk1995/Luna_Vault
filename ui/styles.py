@@ -327,6 +327,10 @@ def apply_app_styles(theme: str = "dark") -> None:
             div[data-testid="stTabs"] [data-baseweb="tab"] { flex:1 1 0; justify-content:center; padding:0 .55rem; }
             div[data-testid="stHorizontalBlock"] { flex-direction:row!important; flex-wrap:nowrap!important; gap:.5rem!important; }
             div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { min-width:0!important; }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button { padding-inline:.55rem!important; }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button p { font-size:0!important; line-height:0!important; }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button span[data-testid="stIconMaterial"],
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button .material-symbols-rounded { font-size:1.25rem!important; line-height:1!important; }
         }
         </style>
         """,

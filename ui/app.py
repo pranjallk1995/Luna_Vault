@@ -1,6 +1,7 @@
 """Luna Vault Streamlit application entry point."""
 
 import hashlib
+import inspect
 from pathlib import Path
 
 import streamlit as st
@@ -19,6 +20,8 @@ class LunaVaultApp:
     """Compose and render the Luna Vault Streamlit interface."""
 
     LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavault_logo_10kb.png"
+    SECTION_KEY = "gallery-section"
+    LAST_SECTION_KEY = "gallery-section-last"
 
     def __init__(self) -> None:
         self.config = UIConfig.from_env()
@@ -101,32 +104,39 @@ class LunaVaultApp:
 
         upload_dialog()
 
+    @classmethod
+    def preserve_section_selection(cls) -> None:
+        """Retain the last gallery section when the active segment is clicked."""
+        selected = st.session_state.get(cls.SECTION_KEY)
+        if selected is None:
+            st.session_state[cls.SECTION_KEY] = st.session_state.get(
+                cls.LAST_SECTION_KEY, "view"
+            )
+        else:
+            st.session_state[cls.LAST_SECTION_KEY] = selected
+
     def selected_section(self) -> str:
-        user_agent = st.context.headers.get("User-Agent", "")
-        compact = self.shared_ui._is_mobile_user_agent(user_agent)
-        labels = (
-            [":material/visibility:", ":material/star:", ":material/lock:"]
-            if compact
-            else [
-                ":material/visibility: View Images",
-                ":material/star: Favorite Images",
-                ":material/lock: Hidden Images",
-            ]
-        )
+        labels = [
+            ":material/visibility: View Images",
+            ":material/star: Favorite Images",
+            ":material/lock: Hidden Images",
+        ]
         tab_keys = ["view", "favorites", "hidden"]
+        navigation_options = {
+            "options": tab_keys,
+            "default": "view",
+            "format_func": dict(zip(tab_keys, labels)).__getitem__,
+            "key": self.SECTION_KEY,
+            "on_change": self.preserve_section_selection,
+            "label_visibility": "collapsed",
+        }
+        if "width" in inspect.signature(st.segmented_control).parameters:
+            navigation_options["width"] = "stretch"
         selected = st.container(key="gallery_navigation").segmented_control(
             "Gallery section",
-            tab_keys,
-            default=st.session_state.get("active_gallery_section", "view"),
-            format_func=dict(zip(tab_keys, labels)).__getitem__,
-            key="gallery_section_compact" if compact else "gallery_section_full",
-            label_visibility="collapsed",
-            width="stretch",
+            **navigation_options,
         )
-        if selected is None:
-            return st.session_state.active_gallery_section
-        st.session_state.active_gallery_section = selected
-        return selected
+        return selected or st.session_state.get(self.LAST_SECTION_KEY, "view")
 
     def render(self) -> None:
         self.shared_ui.initialize_state()
