@@ -8,7 +8,7 @@ import streamlit as st
 from PIL import Image
 
 from config import UIConfig
-from styles import apply_app_styles, render_app_header
+from styles import LunaStyle
 from tabs.favorites_page import FavoritesPage
 from tabs.hidden_page import HiddenPage
 from tabs.shared import LunaVisiaUI
@@ -52,48 +52,11 @@ class LunaVisiaApp:
             st.toast("Luna Visia updated", icon=":material/refresh:")
 
     def render_header(self) -> bool:
-        brand_column, controls_column = st.columns(
-            [5, 4], vertical_alignment="center", gap="medium"
+        return LunaStyle.header(
+            self.LOGO_PATH,
+            st.session_state.gallery_view_mode,
+            self.set_gallery_view,
         )
-        with brand_column:
-            render_app_header(self.LOGO_PATH)
-        with controls_column:
-            grid_column, list_column, upload_column = st.columns(
-                [1, 1, 3], vertical_alignment="center", gap="small"
-            )
-            grid_column.button(
-                ":material/grid_view:",
-                help="Grid view",
-                type=(
-                    "primary"
-                    if st.session_state.gallery_view_mode == "grid"
-                    else "secondary"
-                ),
-                key="use_grid_view",
-                on_click=self.set_gallery_view,
-                args=("grid",),
-                width="stretch",
-            )
-            list_column.button(
-                ":material/view_list:",
-                help="List view",
-                type=(
-                    "primary"
-                    if st.session_state.gallery_view_mode == "list"
-                    else "secondary"
-                ),
-                key="use_list_view",
-                on_click=self.set_gallery_view,
-                args=("list",),
-                width="stretch",
-            )
-            return upload_column.button(
-                "Upload Images",
-                icon=":material/upload:",
-                type="primary",
-                key="open_upload_dialog",
-                width="stretch",
-            )
 
     def render_upload_dialog(self) -> None:
         @st.dialog("Upload images", width="large")
@@ -139,7 +102,7 @@ class LunaVisiaApp:
     def render(self) -> None:
         self.shared_ui.initialize_state()
         self.show_reload_notice()
-        apply_app_styles(st.session_state.color_theme)
+        LunaStyle.apply(st.session_state.color_theme)
         if self.render_header():
             self.render_upload_dialog()
 

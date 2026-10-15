@@ -2,354 +2,373 @@
 
 import base64
 from pathlib import Path
+from typing import Callable
 
 import streamlit as st
 
 
-def apply_app_styles(theme: str = "dark") -> None:
-    """Apply the selected Luna Visia palette without altering widget behavior."""
-    palette = (
-        "--lv-bg:#f5f7fb;--lv-surface:#ffffff;--lv-control:#eef2f8;"
-        "--lv-control-hover:#e2e8f0;--lv-text:#111827;--lv-muted:#64748b;"
-        "--lv-border:rgba(71,85,105,.20);--lv-strong:rgba(99,102,241,.48);"
-        "--lv-accent:#6366f1;--lv-soft:rgba(99,102,241,.12);"
-        if theme == "light"
-        else "--lv-bg:#111111;--lv-surface:rgba(255,255,255,.055);--lv-control:rgba(255,255,255,.07);"
-        "--lv-control-hover:rgba(255,255,255,.12);--lv-text:#f5f5f5;--lv-muted:#a3a3a3;"
-        "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
-        "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
-    )
-    st.markdown(f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <style>
+class LunaStyle:
+    """Apply the Luna Visia presentation layer through a scoped API."""
 
-        .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(255,255,255,.07),transparent 30rem),var(--lv-bg); }
-        .block-container { max-width:1180px; padding-top:1.35rem; padding-bottom:3rem; }
-        .stApp p,.stApp label,.stApp [data-testid="stMarkdownContainer"] { color:var(--lv-text); }
-        div[data-testid="stHorizontalBlock"]:has(.lv-header) { align-items:center; margin-bottom:.55rem; }
-        div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button { white-space:nowrap; }
-        header[data-testid="stHeader"] { background:transparent; }
-        #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
-        .lv-header { display:flex; align-items:center; gap:1rem; min-height:4.5rem; margin-bottom:1rem; }
-        .lv-mark { display:block; flex:0 0 5.75rem; width:5.75rem; height:4.5rem; border:0; border-radius:0; object-fit:contain; object-position:center; box-shadow:none; }
-        .lv-title { margin:0; color:var(--lv-text); font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
-        .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
-        div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
-        div[data-testid="stTabs"] [data-baseweb="tab"] { height:2.55rem; padding:0 1rem; border-radius:.65rem; color:var(--lv-muted); }
-        div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:var(--lv-text); }
-        div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display:none; }
-        div[data-testid="stButtonGroup"] { gap:.2rem; padding:.4rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
-        div[data-testid="stButtonGroup"] button { min-height:2.55rem!important; border:0!important; border-radius:.65rem!important; box-shadow:none!important; }
-        div[data-testid="stPopover"] > button[data-testid] {
-            width:1.75rem!important; min-width:1.75rem!important;
-            height:2rem!important; min-height:2rem!important; padding:0!important;
-            border:0!important; border-radius:.35rem!important;
-            background:transparent!important; box-shadow:none!important;
-        }
-        div[data-testid="stPopover"] > button[data-testid]:hover,
-        div[data-testid="stPopover"] > button[data-testid]:focus {
-            border:0!important; background:transparent!important;
-            box-shadow:none!important; transform:none!important; outline:0!important;
-        }
-        div[data-testid="stPopover"] > button[data-testid] svg:last-child {
-            display:none!important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--lv-border); border-radius:14px; background:var(--lv-surface); box-shadow:0 10px 30px rgba(0,0,0,.12); }
-        div[data-testid="stFileUploader"] section { min-height:10rem; border:1px dashed rgba(255,255,255,.30); border-radius:14px; background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025)); }
-        div[data-testid="stFileUploader"] section:hover { border-color:rgba(255,255,255,.48); background:rgba(255,255,255,.11); }
-        div[data-baseweb="input"],div[data-baseweb="select"] > div { border:1px solid var(--lv-border)!important; border-radius:.75rem!important; background:var(--lv-surface)!important; box-shadow:none!important; }
-        div[data-baseweb="input"]:focus-within { border-color:var(--lv-strong)!important; }
-        div[data-baseweb="input"] > div { border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; }
-        .stApp input,.stApp textarea,
-        div[data-baseweb="select"] [role="combobox"],
-        div[data-baseweb="select"] [aria-selected] {
-            color:var(--lv-text)!important; -webkit-text-fill-color:var(--lv-text)!important;
-            caret-color:var(--lv-text)!important;
-        }
-        .stApp input::placeholder,.stApp textarea::placeholder {
-            color:var(--lv-muted)!important; -webkit-text-fill-color:var(--lv-muted)!important;
-            opacity:1!important;
-        }
-        div[data-baseweb="input"] svg {
-            color:var(--lv-text)!important; fill:none!important;
-            stroke:var(--lv-text)!important; opacity:.8!important;
-        }
-        div[data-baseweb="input"] svg path,div[data-baseweb="input"] svg circle {
-            stroke:var(--lv-text)!important;
-        }
-        div[data-baseweb="select"] svg { fill:var(--lv-muted)!important; color:var(--lv-muted)!important; }
-        .stButton > button,.stDownloadButton > button,div[data-testid="stFormSubmitButton"] > button { min-height:2.55rem; border-color:var(--lv-border); border-radius:.75rem; background:rgba(255,255,255,.07); transition:border-color 140ms ease,background 140ms ease,transform 140ms ease; }
-        .stButton > button:hover,.stDownloadButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover { border-color:var(--lv-strong); background:var(--lv-soft); color:var(--lv-text); transform:translateY(-1px); }
-        button[kind="primary"] { border-color:rgba(255,255,255,.28)!important; background:rgba(255,255,255,.16)!important; color:white!important; }
-        div[data-testid="stImage"] img { border-radius:.8rem; }
-        div[data-testid="stElementContainer"]:has(> div[data-testid="stCustomComponentV1"]),
-        div[data-testid="stColumn"]:has(.lv-thumbnail-shell) {
-            overflow:visible!important;
-        }
-        div[data-testid="stCustomComponentV1"] {
-            position:relative; z-index:1; border-radius:.8rem;
-            transition:transform 180ms cubic-bezier(.2,.8,.2,1),filter 180ms ease;
-            transform-origin:center;
-            will-change:transform,filter;
-        }
-        div[data-testid="stCustomComponentV1"] iframe {
-            border-radius:.8rem!important;
-            clip-path:inset(0 round .8rem);
-        }
-        div[data-testid="stCustomComponentV1"]:hover {
-            z-index:20; transform:translateY(-8px) scale(1.045);
-            filter:drop-shadow(0 18px 24px rgba(0,0,0,.52)) drop-shadow(0 0 2px rgba(255,255,255,.42));
-        }
-        div[data-testid="stColumn"]:has(.lv-thumbnail-shell) { position:relative; }
-        div[data-testid="stColumn"]:has(.lv-thumbnail-shell) > div[data-testid="stVerticalBlock"] { gap:.3rem!important; }
-        div[data-testid="stElementContainer"]:has(.lv-thumbnail-shell),
-        div[data-testid="stElementContainer"]:has(.lv-favorite-overlay) { display:none!important; }
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) {
-            position:absolute!important; top:.45rem; left:.45rem; right:.45rem;
-            z-index:5; width:auto!important; align-items:start!important;
-            opacity:0; transition:opacity 120ms ease;
-        }
-        div[data-testid="stColumn"]:has(.lv-thumbnail-shell):hover div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)),
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)):has(button[data-testid="stBaseButton-primary"]) {
-            opacity:1;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) .stButton > button {
-            width:2rem!important; min-width:2rem!important; height:2rem!important; min-height:2rem!important;
-            padding:0!important; border:0!important; border-radius:0!important;
-            background:transparent!important; color:#f8fafc!important;
-            box-shadow:none!important; transform:none!important;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) div[data-testid="stColumn"]:has(.lv-favorite-active) .stButton > button {
-            color:#fb4b68!important;
-        }
-        .lv-card-tags { display:flex; align-items:flex-start; flex-wrap:wrap; gap:.3rem; height:1.7rem; padding:.05rem 0 .15rem; margin:.1rem 0 .3rem; overflow:hidden; }
-        .lv-tag { flex:0 0 auto; padding:.12rem .48rem; border:1px solid transparent; border-radius:999px; font-size:.68rem; line-height:1.1rem; }
-        .lv-tag-0 { color:#93c5fd; background:rgba(37,99,235,.18); border-color:rgba(96,165,250,.22); }
-        .lv-tag-1 { color:#6ee7b7; background:rgba(5,150,105,.18); border-color:rgba(52,211,153,.22); }
-        .lv-tag-2 { color:#fcd34d; background:rgba(217,119,6,.18); border-color:rgba(251,191,36,.22); }
-        .lv-tag-3 { color:#d8b4fe; background:rgba(147,51,234,.18); border-color:rgba(192,132,252,.22); }
-        .lv-tag-4 { color:#fda4af; background:rgba(225,29,72,.18); border-color:rgba(251,113,133,.22); }
-        .lv-tag-5 { color:#67e8f9; background:rgba(8,145,178,.18); border-color:rgba(34,211,238,.22); }
-        .lv-card-facts { display:flex; align-items:center; gap:.35rem; margin-bottom:1.5rem; color:var(--lv-muted); font-size:.7rem; white-space:nowrap; }
-        div[data-testid="stElementContainer"]:has(.lv-preview-details) { display:none!important; }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details),
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) > div {
-            border:0!important; border-radius:0!important;
-            background:transparent!important; box-shadow:none!important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) > div { padding:.65rem!important; }
-        .lv-preview-caption {
-            display:flex; align-items:center; min-height:1.35rem;
-            margin:0; color:var(--lv-text); line-height:1.35rem;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.lv-preview-static-icon) {
-            align-items:center!important;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.lv-preview-static-icon) > div[data-testid="stColumn"] {
-            display:flex!important; align-items:center!important;
-        }
-        .lv-preview-section-icon { display:inline-flex; align-items:center; margin-right:.55rem; color:var(--lv-muted); font-size:1.15rem; vertical-align:middle; }
-        .lv-preview-heading { display:flex; align-items:center; color:var(--lv-muted); font-size:.95rem; }
-        .lv-preview-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin:0; padding:0 0 .45rem; }
-        div[data-testid="stElementContainer"]:has(.lv-preview-removable-tags) { display:none!important; }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"],
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) [data-baseweb="button-group"] {
-            padding:0!important; border:0!important; border-radius:0!important;
-            background:transparent!important; box-shadow:none!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button {
-            position:relative; min-height:1.55rem!important; padding:.12rem .48rem!important;
-            border-radius:999px!important; font-size:.68rem!important; line-height:1.1rem!important;
-            overflow:visible; box-shadow:none!important;
-            transition:border-color .15s ease, background-color .15s ease;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+1) {
-            color:#93c5fd!important; background:rgba(37,99,235,.18)!important; border-color:rgba(96,165,250,.35)!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+2) {
-            color:#6ee7b7!important; background:rgba(5,150,105,.18)!important; border-color:rgba(52,211,153,.35)!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+3) {
-            color:#fcd34d!important; background:rgba(217,119,6,.18)!important; border-color:rgba(251,191,36,.35)!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+4) {
-            color:#d8b4fe!important; background:rgba(147,51,234,.18)!important; border-color:rgba(192,132,252,.35)!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+5) {
-            color:#fda4af!important; background:rgba(225,29,72,.18)!important; border-color:rgba(251,113,133,.35)!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+6) {
-            color:#67e8f9!important; background:rgba(8,145,178,.18)!important; border-color:rgba(34,211,238,.35)!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button::after {
-            content:"×"; display:inline-block; width:0; margin-left:0; overflow:hidden;
-            color:currentColor; opacity:0; transition:width .15s ease, margin-left .15s ease, opacity .15s ease;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:hover::after {
-            width:.7rem; margin-left:.2rem; opacity:1;
-        }
-        div[data-testid="stElementContainer"]:has(.lv-preview-icon-action),
-        div[data-testid="stElementContainer"]:has(.lv-preview-static-icon) { display:none!important; }
-        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button,
-        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:hover,
-        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:focus-visible,
-        div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:active {
-            width:2rem!important; min-width:2rem!important; height:2rem!important; min-height:2rem!important;
-            padding:0!important; border:0!important; border-radius:0!important;
-            background:transparent!important; box-shadow:none!important; outline:0!important; transform:none!important;
-        }
-        div[data-testid="stColumn"]:has(.lv-preview-static-icon) .stButton > button:disabled {
-            width:1.35rem!important; min-width:1.35rem!important;
-            height:1.35rem!important; min-height:1.35rem!important;
-            color:var(--lv-muted)!important; opacity:1!important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) { margin-top:.45rem; }
-        div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(255,255,255,.045); }
-        div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
-        div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(255,255,255,.055); }
-        /* Shared control system: native, icon, form, and download buttons. */
-        .stButton > button,.stDownloadButton > button,
-        div[data-testid="stFormSubmitButton"] > button {
-            min-height:2.625rem!important; height:2.625rem;
-            padding:.45rem .9rem!important; border:1px solid var(--lv-border)!important;
-            border-radius:.5rem!important; background:var(--lv-control)!important;
-            color:var(--lv-text)!important; font-weight:650!important;
-            box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
-        }
-        .stButton > button:hover,.stDownloadButton > button:hover,
-        div[data-testid="stFormSubmitButton"] > button:hover {
-            border-color:var(--lv-strong)!important; background:var(--lv-control-hover)!important;
-            color:var(--lv-text)!important; transform:translateY(-1px);
-        }
-        .stButton > button:focus-visible,.stDownloadButton > button:focus-visible {
-            outline:2px solid var(--lv-accent)!important; outline-offset:2px;
-        }
-        button[data-testid="stBaseButton-primary"],button[kind="primary"] {
-            border-color:rgba(255,255,255,.28)!important; background:rgba(255,255,255,.16)!important;
-        }
-        div[data-testid="stPopover"] button {
-            width:1.75rem!important; min-width:1.75rem!important;
-            height:2rem!important; min-height:2rem!important; padding:0!important;
-            border:0!important; background:transparent!important;
-            box-shadow:none!important; transform:none!important; outline:0!important;
-        }
-        div[data-testid="stPopover"] button:hover,
-        div[data-testid="stPopover"] button:focus,
-        div[data-testid="stPopover"] button:focus-visible {
-            border:0!important; background:transparent!important;
-            box-shadow:none!important; transform:none!important; outline:0!important;
-        }
-        div[data-testid="stPopover"] button svg { display:none!important; }
-        div[data-testid="stPopoverBody"] {
-            width:8.75rem!important; min-width:8.75rem!important; max-width:8.75rem!important;
-            margin-top:-.4rem!important; margin-right:0!important; margin-bottom:0!important;
-            padding:.4rem!important; border-radius:.65rem!important;
-        }
-        div[data-testid="stPopoverBody"] div[data-testid="stHorizontalBlock"] {
-            gap:.35rem!important; align-items:center!important;
-        }
+    @staticmethod
+    def apply(theme: str = "dark") -> None:
+        """Apply the selected Luna Visia palette without altering widget behavior."""
+        palette = (
+            "--lv-bg:#f5f7fb;--lv-surface:#ffffff;--lv-control:#eef2f8;"
+            "--lv-control-hover:#e2e8f0;--lv-text:#111827;--lv-muted:#64748b;"
+            "--lv-border:rgba(71,85,105,.20);--lv-strong:rgba(99,102,241,.48);"
+            "--lv-accent:#6366f1;--lv-soft:rgba(99,102,241,.12);"
+            if theme == "light"
+            else "--lv-bg:#111111;--lv-surface:rgba(255,255,255,.055);--lv-control:rgba(255,255,255,.07);"
+            "--lv-control-hover:rgba(255,255,255,.12);--lv-text:#f5f5f5;--lv-muted:#a3a3a3;"
+            "--lv-border:rgba(255,255,255,.14);--lv-strong:rgba(255,255,255,.34);"
+            "--lv-accent:#f5f5f5;--lv-soft:rgba(255,255,255,.09);"
+        )
+        st.markdown(f"<style>:root {{{palette}}}</style>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <style>
 
-        div[data-testid="stPopoverBody"] .stButton > button,
-        div[data-testid="stPopoverBody"] .stDownloadButton > button,
-        div[data-testid="stPopoverBody"] .stButton > button:hover,
-        div[data-testid="stPopoverBody"] .stDownloadButton > button:hover,
-        div[data-testid="stPopoverBody"] .stButton > button:focus-visible,
-        div[data-testid="stPopoverBody"] .stDownloadButton > button:focus-visible,
-        div[data-testid="stPopoverBody"] .stButton > button:active,
-        div[data-testid="stPopoverBody"] .stDownloadButton > button:active {
-            padding:0!important; min-width:2.5rem!important;
-            border:0!important; background:transparent!important; outline:0!important; box-shadow:none!important; transform:none!important;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button,
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:hover,
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:focus-visible,
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:active {
-            border:0!important; background:transparent!important;
-            box-shadow:none!important; outline:0!important; transform:none!important;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) button[data-testid="stBaseButton-primary"] {
-            color:#ff3b5c!important;
-        }
-        /* Keep navigation segments visually separated from one another. */
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button {
-            margin-inline:.16rem!important;
-            padding-inline:1rem!important;
-            border:0!important;
-            background:transparent!important;
-            box-shadow:none!important;
-        }
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]),
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) p,
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) span {
-            color:var(--lv-muted)!important;
-            -webkit-text-fill-color:var(--lv-muted)!important;
-        }
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) {
-            background:rgba(255,255,255,.12)!important;
-        }
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]),
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) p,
-        .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) span {
-            color:var(--lv-text)!important;
-            -webkit-text-fill-color:var(--lv-text)!important;
-        }
-        button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
-        div[data-baseweb="input"],div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
-        .lv-gallery-transition { display:none; }
-        @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }
-        @keyframes lv-gallery-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        div[data-testid="stElementContainer"]:has(.lv-gallery-out) ~ * {
-            animation:lv-gallery-out 160ms ease-in forwards;
-            pointer-events:none;
-            will-change:opacity,transform;
-        }
-        div[data-testid="stElementContainer"]:has(.lv-gallery-in) ~ * {
-            animation:lv-gallery-in 180ms ease-out both;
-            will-change:opacity,transform;
-        }
-        div[data-testid="stElementContainer"]:has(.lv-pagination) { display:none!important; }
-        div[data-testid="stHorizontalBlock"]:has(.lv-pagination) {
-            width:100%!important; max-width:20rem!important; margin:1.25rem auto 0!important;
-            align-items:center!important; gap:.45rem!important;
-        }
-        @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
-        @media (max-width:700px) {
-            .block-container { padding:.85rem .8rem 2rem; }
-            .lv-header { flex-wrap:nowrap!important; gap:.65rem; min-width:0; }
-            .lv-header > div { min-width:0; }
-            .lv-mark { flex:0 0 4rem; width:4rem; height:3.4rem; }
-            .lv-title { white-space:nowrap; font-size:clamp(1.55rem,8vw,1.85rem); }
-            div[data-testid="stHorizontalBlock"]:has(.lv-header) { flex-wrap:wrap!important; }
-            div[data-testid="stHorizontalBlock"]:has(.lv-header) > div[data-testid="stColumn"] { flex:1 1 100%!important; width:100%!important; }
-            .lv-subtitle { display:none; }
-            div[data-testid="stTabs"] [data-baseweb="tab-list"] { width:100%; justify-content:space-around; }
-            div[data-testid="stTabs"] [data-baseweb="tab"] { flex:1 1 0; justify-content:center; padding:0 .55rem; }
-            div[data-testid="stHorizontalBlock"] { flex-direction:row!important; flex-wrap:nowrap!important; gap:.5rem!important; }
-            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { min-width:0!important; }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button { padding-inline:.55rem!important; }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button p { font-size:0!important; line-height:0!important; }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button span[data-testid="stIconMaterial"],
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button .material-symbols-rounded { font-size:1.25rem!important; line-height:1!important; }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+            .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(255,255,255,.07),transparent 30rem),var(--lv-bg); }
+            .block-container { max-width:1180px; padding-top:1.35rem; padding-bottom:3rem; }
+            .stApp p,.stApp label,.stApp [data-testid="stMarkdownContainer"] { color:var(--lv-text); }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) { align-items:center; margin-bottom:.55rem; }
+            div[data-testid="stHorizontalBlock"]:has(.lv-header) .stButton > button { white-space:nowrap; }
+            header[data-testid="stHeader"] { background:transparent; }
+            #MainMenu,footer,div[data-testid="stDecoration"] { display:none; }
+            .lv-header { display:flex; align-items:center; gap:1rem; min-height:4.5rem; margin-bottom:1rem; }
+            .lv-mark { display:block; flex:0 0 5.75rem; width:5.75rem; height:4.5rem; border:0; border-radius:0; object-fit:contain; object-position:center; box-shadow:none; }
+            .lv-title { margin:0; color:var(--lv-text); font-family:inherit; font-size:clamp(1.65rem,3vw,2.15rem); font-weight:720; letter-spacing:-.04em; line-height:1; }
+            .lv-subtitle { margin:.32rem 0 0; color:var(--lv-muted); font-size:.84rem; }
+            div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:.35rem; padding:.28rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
+            div[data-testid="stTabs"] [data-baseweb="tab"] { height:2.55rem; padding:0 1rem; border-radius:.65rem; color:var(--lv-muted); }
+            div[data-testid="stTabs"] [aria-selected="true"] { background:var(--lv-soft); color:var(--lv-text); }
+            div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display:none; }
+            div[data-testid="stButtonGroup"] { gap:.2rem; padding:.4rem; border:1px solid var(--lv-border); border-radius:.9rem; background:var(--lv-surface); }
+            div[data-testid="stButtonGroup"] button { min-height:2.55rem!important; border:0!important; border-radius:.65rem!important; box-shadow:none!important; }
+            div[data-testid="stPopover"] > button[data-testid] {
+                width:1.75rem!important; min-width:1.75rem!important;
+                height:2rem!important; min-height:2rem!important; padding:0!important;
+                border:0!important; border-radius:.35rem!important;
+                background:transparent!important; box-shadow:none!important;
+            }
+            div[data-testid="stPopover"] > button[data-testid]:hover,
+            div[data-testid="stPopover"] > button[data-testid]:focus {
+                border:0!important; background:transparent!important;
+                box-shadow:none!important; transform:none!important; outline:0!important;
+            }
+            div[data-testid="stPopover"] > button[data-testid] svg:last-child {
+                display:none!important;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--lv-border); border-radius:14px; background:var(--lv-surface); box-shadow:0 10px 30px rgba(0,0,0,.12); }
+            div[data-testid="stFileUploader"] section { min-height:10rem; border:1px dashed rgba(255,255,255,.30); border-radius:14px; background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025)); }
+            div[data-testid="stFileUploader"] section:hover { border-color:rgba(255,255,255,.48); background:rgba(255,255,255,.11); }
+            div[data-baseweb="input"],div[data-baseweb="select"] > div { border:1px solid var(--lv-border)!important; border-radius:.75rem!important; background:var(--lv-surface)!important; box-shadow:none!important; }
+            div[data-baseweb="input"]:focus-within { border-color:var(--lv-strong)!important; }
+            div[data-baseweb="input"] > div { border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; }
+            .stApp input,.stApp textarea,
+            div[data-baseweb="select"] [role="combobox"],
+            div[data-baseweb="select"] [aria-selected] {
+                color:var(--lv-text)!important; -webkit-text-fill-color:var(--lv-text)!important;
+                caret-color:var(--lv-text)!important;
+            }
+            .stApp input::placeholder,.stApp textarea::placeholder {
+                color:var(--lv-muted)!important; -webkit-text-fill-color:var(--lv-muted)!important;
+                opacity:1!important;
+            }
+            div[data-baseweb="input"] svg {
+                color:var(--lv-text)!important; fill:none!important;
+                stroke:var(--lv-text)!important; opacity:.8!important;
+            }
+            div[data-baseweb="input"] svg path,div[data-baseweb="input"] svg circle {
+                stroke:var(--lv-text)!important;
+            }
+            div[data-baseweb="select"] svg { fill:var(--lv-muted)!important; color:var(--lv-muted)!important; }
+            div[data-testid="stImage"] img { border-radius:.8rem; }
+            div[data-testid="stElementContainer"]:has(> div[data-testid="stCustomComponentV1"]),
+            div[data-testid="stColumn"]:has(.lv-thumbnail-shell) {
+                overflow:visible!important;
+            }
+            div[data-testid="stCustomComponentV1"] {
+                position:relative; z-index:1; border-radius:.8rem;
+                transition:transform 180ms cubic-bezier(.2,.8,.2,1),filter 180ms ease;
+                transform-origin:center;
+                will-change:transform,filter;
+            }
+            div[data-testid="stCustomComponentV1"] iframe {
+                border-radius:.8rem!important;
+                clip-path:inset(0 round .8rem);
+            }
+            div[data-testid="stCustomComponentV1"]:hover {
+                z-index:20; transform:translateY(-8px) scale(1.045);
+                filter:drop-shadow(0 18px 24px rgba(0,0,0,.52)) drop-shadow(0 0 2px rgba(255,255,255,.42));
+            }
+            div[data-testid="stColumn"]:has(.lv-thumbnail-shell) { position:relative; }
+            div[data-testid="stColumn"]:has(.lv-thumbnail-shell) > div[data-testid="stVerticalBlock"] { gap:.3rem!important; }
+            div[data-testid="stElementContainer"]:has(.lv-thumbnail-shell),
+            div[data-testid="stElementContainer"]:has(.lv-favorite-overlay) { display:none!important; }
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) {
+                position:absolute!important; top:.45rem; left:.45rem; right:.45rem;
+                z-index:5; width:auto!important; align-items:start!important;
+                opacity:0; transition:opacity 120ms ease;
+            }
+            div[data-testid="stColumn"]:has(.lv-thumbnail-shell):hover div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)),
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)):has(button[data-testid="stBaseButton-primary"]) {
+                opacity:1;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) .stButton > button {
+                width:2rem!important; min-width:2rem!important; height:2rem!important; min-height:2rem!important;
+                padding:0!important; border:0!important; border-radius:0!important;
+                background:transparent!important; color:#f8fafc!important;
+                box-shadow:none!important; transform:none!important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay):not(:has(.lv-thumbnail-shell)) div[data-testid="stColumn"]:has(.lv-favorite-active) .stButton > button {
+                color:#fb4b68!important;
+            }
+            .lv-card-tags { display:flex; align-items:flex-start; flex-wrap:wrap; gap:.3rem; height:1.7rem; padding:.05rem 0 .15rem; margin:.1rem 0 .3rem; overflow:hidden; }
+            .lv-tag { flex:0 0 auto; padding:.12rem .48rem; border:1px solid transparent; border-radius:999px; font-size:.68rem; line-height:1.1rem; }
+            .lv-tag-0 { color:#93c5fd; background:rgba(37,99,235,.18); border-color:rgba(96,165,250,.22); }
+            .lv-tag-1 { color:#6ee7b7; background:rgba(5,150,105,.18); border-color:rgba(52,211,153,.22); }
+            .lv-tag-2 { color:#fcd34d; background:rgba(217,119,6,.18); border-color:rgba(251,191,36,.22); }
+            .lv-tag-3 { color:#d8b4fe; background:rgba(147,51,234,.18); border-color:rgba(192,132,252,.22); }
+            .lv-tag-4 { color:#fda4af; background:rgba(225,29,72,.18); border-color:rgba(251,113,133,.22); }
+            .lv-tag-5 { color:#67e8f9; background:rgba(8,145,178,.18); border-color:rgba(34,211,238,.22); }
+            .lv-card-facts { display:flex; align-items:center; gap:.35rem; margin-bottom:1.5rem; color:var(--lv-muted); font-size:.7rem; white-space:nowrap; }
+            div[data-testid="stElementContainer"]:has(.lv-preview-details) { display:none!important; }
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details),
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) > div {
+                border:0!important; border-radius:0!important;
+                background:transparent!important; box-shadow:none!important;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) > div { padding:.65rem!important; }
+            .lv-preview-caption {
+                display:flex; align-items:center; min-height:1.35rem;
+                margin:0; color:var(--lv-text); line-height:1.35rem;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-preview-static-icon) {
+                align-items:center!important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-preview-static-icon) > div[data-testid="stColumn"] {
+                display:flex!important; align-items:center!important;
+            }
+            .lv-preview-section-icon { display:inline-flex; align-items:center; margin-right:.55rem; color:var(--lv-muted); font-size:1.15rem; vertical-align:middle; }
+            .lv-preview-heading { display:flex; align-items:center; color:var(--lv-muted); font-size:.95rem; }
+            .lv-preview-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin:0; padding:0 0 .45rem; }
+            div[data-testid="stElementContainer"]:has(.lv-preview-removable-tags) { display:none!important; }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"],
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) [data-baseweb="button-group"] {
+                padding:0!important; border:0!important; border-radius:0!important;
+                background:transparent!important; box-shadow:none!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button {
+                position:relative; min-height:1.55rem!important; padding:.12rem .48rem!important;
+                border-radius:999px!important; font-size:.68rem!important; line-height:1.1rem!important;
+                overflow:visible; box-shadow:none!important;
+                transition:border-color .15s ease, background-color .15s ease;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+1) {
+                color:#93c5fd!important; background:rgba(37,99,235,.18)!important; border-color:rgba(96,165,250,.35)!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+2) {
+                color:#6ee7b7!important; background:rgba(5,150,105,.18)!important; border-color:rgba(52,211,153,.35)!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+3) {
+                color:#fcd34d!important; background:rgba(217,119,6,.18)!important; border-color:rgba(251,191,36,.35)!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+4) {
+                color:#d8b4fe!important; background:rgba(147,51,234,.18)!important; border-color:rgba(192,132,252,.35)!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+5) {
+                color:#fda4af!important; background:rgba(225,29,72,.18)!important; border-color:rgba(251,113,133,.35)!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:nth-of-type(6n+6) {
+                color:#67e8f9!important; background:rgba(8,145,178,.18)!important; border-color:rgba(34,211,238,.35)!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button::after {
+                content:"×"; display:inline-block; width:0; margin-left:0; overflow:hidden;
+                color:currentColor; opacity:0; transition:width .15s ease, margin-left .15s ease, opacity .15s ease;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-removable-tags) div[data-testid="stButtonGroup"] button:hover::after {
+                width:.7rem; margin-left:.2rem; opacity:1;
+            }
+            div[data-testid="stElementContainer"]:has(.lv-preview-icon-action),
+            div[data-testid="stElementContainer"]:has(.lv-preview-static-icon) { display:none!important; }
+            div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button,
+            div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:hover,
+            div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:focus-visible,
+            div[data-testid="stHorizontalBlock"]:is(:has(.lv-preview-icon-action),:has(.lv-preview-static-icon)) .stButton > button:active {
+                width:2rem!important; min-width:2rem!important; height:2rem!important; min-height:2rem!important;
+                padding:0!important; border:0!important; border-radius:0!important;
+                background:transparent!important; box-shadow:none!important; outline:0!important; transform:none!important;
+            }
+            div[data-testid="stColumn"]:has(.lv-preview-static-icon) .stButton > button:disabled {
+                width:1.35rem!important; min-width:1.35rem!important;
+                height:1.35rem!important; min-height:1.35rem!important;
+                color:var(--lv-muted)!important; opacity:1!important;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.lv-preview-details) { margin-top:.45rem; }
+            div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(255,255,255,.045); }
+            div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
+            div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(255,255,255,.055); }
+            div[data-testid="stPopover"] button {
+                width:1.75rem!important; min-width:1.75rem!important;
+                height:2rem!important; min-height:2rem!important; padding:0!important;
+                border:0!important; background:transparent!important;
+                box-shadow:none!important; transform:none!important; outline:0!important;
+            }
+            div[data-testid="stPopover"] button:hover,
+            div[data-testid="stPopover"] button:focus,
+            div[data-testid="stPopover"] button:focus-visible {
+                border:0!important; background:transparent!important;
+                box-shadow:none!important; transform:none!important; outline:0!important;
+            }
+            div[data-testid="stPopover"] button svg { display:none!important; }
+            div[data-testid="stPopoverBody"] {
+                width:8.75rem!important; min-width:8.75rem!important; max-width:8.75rem!important;
+                margin-top:-.4rem!important; margin-right:0!important; margin-bottom:0!important;
+                padding:.4rem!important; border-radius:.65rem!important;
+            }
+            div[data-testid="stPopoverBody"] div[data-testid="stHorizontalBlock"] {
+                gap:.35rem!important; align-items:center!important;
+            }
 
+            div[data-testid="stPopoverBody"] .stButton > button,
+            div[data-testid="stPopoverBody"] .stDownloadButton > button,
+            div[data-testid="stPopoverBody"] .stButton > button:hover,
+            div[data-testid="stPopoverBody"] .stDownloadButton > button:hover,
+            div[data-testid="stPopoverBody"] .stButton > button:focus-visible,
+            div[data-testid="stPopoverBody"] .stDownloadButton > button:focus-visible,
+            div[data-testid="stPopoverBody"] .stButton > button:active,
+            div[data-testid="stPopoverBody"] .stDownloadButton > button:active {
+                padding:0!important; min-width:2.5rem!important;
+                border:0!important; background:transparent!important; outline:0!important; box-shadow:none!important; transform:none!important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button,
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:hover,
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:focus-visible,
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) .stButton > button:active {
+                border:0!important; background:transparent!important;
+                box-shadow:none!important; outline:0!important; transform:none!important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) button[data-testid="stBaseButton-primary"] {
+                color:#ff3b5c!important;
+            }
+            /* Keep navigation segments visually separated from one another. */
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button {
+                margin-inline:.16rem!important;
+                padding-inline:1rem!important;
+                border:0!important;
+                background:transparent!important;
+                box-shadow:none!important;
+            }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]),
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) p,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:not([aria-pressed="true"]):not([data-testid="stBaseButton-primary"]) span {
+                color:var(--lv-muted)!important;
+                -webkit-text-fill-color:var(--lv-muted)!important;
+            }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) {
+                background:rgba(255,255,255,.12)!important;
+            }
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]),
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) p,
+            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[data-testid="stBaseButton-primary"]) span {
+                color:var(--lv-text)!important;
+                -webkit-text-fill-color:var(--lv-text)!important;
+            }
+            button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
+            div[data-baseweb="input"],div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
+            .lv-gallery-transition { display:none; }
+            @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }
+            @keyframes lv-gallery-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+            div[data-testid="stElementContainer"]:has(.lv-gallery-out) ~ * {
+                animation:lv-gallery-out 160ms ease-in forwards;
+                pointer-events:none;
+                will-change:opacity,transform;
+            }
+            div[data-testid="stElementContainer"]:has(.lv-gallery-in) ~ * {
+                animation:lv-gallery-in 180ms ease-out both;
+                will-change:opacity,transform;
+            }
+            div[data-testid="stElementContainer"]:has(.lv-pagination) { display:none!important; }
+            div[data-testid="stHorizontalBlock"]:has(.lv-pagination) {
+                width:100%!important; max-width:20rem!important; margin:1.25rem auto 0!important;
+                align-items:center!important; gap:.45rem!important;
+            }
+            @media (prefers-reduced-motion:reduce) { div[data-testid="stElementContainer"]:has(.lv-gallery-transition) ~ * { animation:none!important; } }
+            @media (max-width:700px) {
+                .block-container { padding:.85rem .8rem 2rem; }
+                .lv-header { flex-wrap:nowrap!important; gap:.65rem; min-width:0; }
+                .lv-header > div { min-width:0; }
+                .lv-mark { flex:0 0 4rem; width:4rem; height:3.4rem; }
+                .lv-title { white-space:nowrap; font-size:clamp(1.55rem,8vw,1.85rem); }
+                div[data-testid="stHorizontalBlock"]:has(.lv-header) { flex-wrap:wrap!important; }
+                div[data-testid="stHorizontalBlock"]:has(.lv-header) > div[data-testid="stColumn"] { flex:1 1 100%!important; width:100%!important; }
+                .lv-subtitle { display:none; }
+                div[data-testid="stTabs"] [data-baseweb="tab-list"] { width:100%; justify-content:space-around; }
+                div[data-testid="stTabs"] [data-baseweb="tab"] { flex:1 1 0; justify-content:center; padding:0 .55rem; }
+                div[data-testid="stHorizontalBlock"] { flex-direction:row!important; flex-wrap:nowrap!important; gap:.5rem!important; }
+                div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] { min-width:0!important; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button { padding-inline:.55rem!important; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button p { font-size:0!important; line-height:0!important; }
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button span[data-testid="stIconMaterial"],
+                .st-key-gallery_navigation div[data-testid="stButtonGroup"] button .material-symbols-rounded { font-size:1.25rem!important; line-height:1!important; }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
-def render_app_header(logo_path: Path) -> None:
-    """Render the compact branded application header."""
-    logo_base64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
-    st.markdown(
-        f"""
-        <div class="lv-header">
-            <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Visia logo">
-            <div>
-                <h1 class="lv-title">Luna Visia</h1>
-                <p class="lv-subtitle">Private AI-managed image storage</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    @staticmethod
+    def header(
+        logo_path: Path,
+        gallery_view_mode: str,
+        on_view_change: Callable[[str], None],
+    ) -> bool:
+        """Render the branded header and gallery controls."""
+        logo_base64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        brand_column, buttons_column = st.columns(
+            [5, 4], vertical_alignment="center", gap="medium"
+        )
+        with brand_column:
+            st.markdown(
+                f"""
+                <div class="lv-header">
+                    <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Visia logo">
+                    <div>
+                        <h1 class="lv-title">Luna Visia</h1>
+                        <p class="lv-subtitle">Private AI-managed image storage</p>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with buttons_column:
+            grid_column, list_column, upload_column = st.columns(
+                [1, 1, 3], vertical_alignment="center", gap="small"
+            )
+            grid_column.button(
+                ":material/grid_view:",
+                help="Grid view",
+                type="primary" if gallery_view_mode == "grid" else "secondary",
+                key="use_grid_view",
+                on_click=on_view_change,
+                args=("grid",),
+                width="stretch",
+            )
+            list_column.button(
+                ":material/view_list:",
+                help="List view",
+                type="primary" if gallery_view_mode == "list" else "secondary",
+                key="use_list_view",
+                on_click=on_view_change,
+                args=("list",),
+                width="stretch",
+            )
+            return upload_column.button(
+                "Upload Images",
+                icon=":material/upload:",
+                type="primary",
+                key="open_upload_dialog",
+                width="stretch",
+            )
