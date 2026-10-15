@@ -18,7 +18,7 @@ from tabs.view_page import ViewImagesPage
 class LunaVaultApp:
     """Compose and render the Luna Vault Streamlit interface."""
 
-    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "luna-vault-logo.png"
+    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavault_logo_10kb.png"
 
     def __init__(self) -> None:
         self.config = UIConfig.from_env()
