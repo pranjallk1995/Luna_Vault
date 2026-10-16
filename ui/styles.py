@@ -30,7 +30,7 @@ class LunaStyle:
         st.html(
             f"<style>:root {{{palette}}}</style>",
         )
-        st.markdown(
+        st.html(
             """
             <style>
             .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(255,255,255,.07),transparent 30rem),var(--lv-bg); }
@@ -468,7 +468,6 @@ class LunaStyle:
             }
             </style>
             """,
-            unsafe_allow_html=True,
         )
         with st.container(key="popover_dismiss_behavior"):
             component_html(

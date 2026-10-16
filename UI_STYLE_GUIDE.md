@@ -37,8 +37,7 @@ collisions with framework theme variables.
 
 | App | Asset | Format | Resolution | File size | Desktop display | Mobile display |
 | --- | --- | --- | --- | --- | --- | --- |
-| Luna Vita | `ui/assets/lunavita_logo.png` | PNG, 8-bit RGBA | 1254 x 1254 px | 637,054 bytes | 5.75rem x 4.5rem | 4.25rem x 3.5rem |
 | Luna Visia | `ui/assets/lunavisia_logo.png` | PNG, 8-bit RGBA | 1254 x 1254 px | 616,506 bytes | 5.75rem x 4.5rem | 4rem x 3.4rem |
 
-Both logos render with `object-fit: contain` so their square source images keep
+Logos render with `object-fit: contain` so their square source images keep
 their aspect ratio within the header bounds.
