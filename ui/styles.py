@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 import streamlit as st
+from streamlit.components.v1 import html as component_html
 
 
 class LunaStyle:
@@ -33,6 +34,7 @@ class LunaStyle:
             """
             <style>
             .stApp { color:var(--lv-text); background:radial-gradient(circle at 82% -10%,rgba(255,255,255,.07),transparent 30rem),var(--lv-bg); }
+            .st-key-popover_dismiss_behavior { display:none!important; }
             .block-container { max-width:1180px; padding-top:1.35rem; padding-bottom:3rem; }
             .stApp p,.stApp label,.stApp [data-testid="stMarkdownContainer"] { color:var(--lv-text); }
             div[data-testid="stHorizontalBlock"]:has(.lv-header) { align-items:center; margin-bottom:.55rem; }
@@ -468,6 +470,47 @@ class LunaStyle:
             """,
             unsafe_allow_html=True,
         )
+        with st.container(key="popover_dismiss_behavior"):
+            component_html(
+                """
+                <script>
+                (() => {
+                    const parentWindow = window.parent;
+                    const documentRoot = parentWindow.document;
+                    if (parentWindow.__lunaVisiaPopoverDismissInstalled) return;
+                    parentWindow.__lunaVisiaPopoverDismissInstalled = true;
+
+                    const dismiss = () => documentRoot.dispatchEvent(
+                        new KeyboardEvent("keydown", {
+                            key: "Escape",
+                            code: "Escape",
+                            bubbles: true,
+                        })
+                    );
+
+                    documentRoot.addEventListener("pointerup", (event) => {
+                        if (event.target.closest(
+                            'div[data-testid="stPopoverBody"] button'
+                        )) {
+                            parentWindow.setTimeout(dismiss, 0);
+                        }
+                    }, true);
+
+                    documentRoot.addEventListener("pointerout", (event) => {
+                        const popover = event.target.closest(
+                            'div[data-testid="stPopoverBody"]'
+                        );
+                        if (!popover || popover.contains(event.relatedTarget)) return;
+                        parentWindow.setTimeout(() => {
+                            if (!popover.matches(":hover")) dismiss();
+                        }, 80);
+                    }, true);
+                })();
+                </script>
+                """,
+                height=0,
+                width=0,
+            )
 
     @staticmethod
     def header(

@@ -211,7 +211,7 @@ Luna Visia exposes these tools to connected MCP clients:
 - `add_image` - programmatically add Base64 image data and generate metadata.
 - `upload_image` - upload a file attached to the user's ChatGPT message through ChatGPT's native file parameter, then generate metadata.
 - `modify_image` - replace a visible image and refresh its metadata.
-- `rename_image` - safely rename a visible image file and its metadata identifier without re-running vision analysis.
+- `rename_image` - ask for explicit confirmation that the filename-based public image URL will also change, then safely rename the visible file and metadata without re-running vision analysis. A completed rename returns the old and new URLs for updating external references.
 - `remove_image` - delete a visible image and its metadata.
 
 ### Metadata, search, and collections

@@ -33,6 +33,7 @@ class FakeVault:
         self.hidden = set()
         self.uploads = []
         self.favorite_updates = []
+        self.renames = []
 
     def ingest_base64(self, name: str, content_base64: str, replace: bool = False):
         self.uploads.append((name, content_base64, replace))
@@ -57,6 +58,16 @@ class FakeVault:
     def public_url(self, name: str) -> str:
         self.visible_path(name)
         return f"https://vault.example.test/vault/api/public/images/{name}"
+
+    def rename(self, name: str, new_name: str):
+        self.visible_path(name).rename(self.root / new_name)
+        self.renames.append((name, new_name))
+        return {
+            "status": "renamed",
+            "old_name": name,
+            "name": new_name,
+            "public_url": self.public_url(new_name),
+        }
 
     def update_public_base_url(self, public_base_url: str):
         return {
@@ -125,6 +136,30 @@ class ImageDeliveryTests(unittest.TestCase):
                 ),
             },
         )
+
+    def test_rename_image_requires_url_confirmation_then_returns_url_mapping(self):
+        server = LunaVisiaMCP(self.vault, object())
+        tool = server.mcp._tool_manager.get_tool("rename_image")
+
+        confirmation = asyncio.run(
+            tool.run({"name": "one.png", "new_name": "renamed.png"})
+        )
+        self.assertEqual(confirmation["status"], "confirmation_required")
+        self.assertEqual(self.vault.renames, [])
+
+        renamed = asyncio.run(
+            tool.run(
+                {
+                    "name": "one.png",
+                    "new_name": "renamed.png",
+                    "rename_image_urls": True,
+                }
+            )
+        )
+        self.assertEqual(self.vault.renames, [("one.png", "renamed.png")])
+        self.assertTrue(renamed["old_url"].endswith("/one.png"))
+        self.assertTrue(renamed["new_url"].endswith("/renamed.png"))
+        self.assertTrue(renamed["image_urls_renamed"])
 
     def test_set_public_base_url_updates_urls_from_chat(self) -> None:
         server = LunaVisiaMCP(self.vault, object())
