@@ -33,6 +33,11 @@ ALTER TABLE image_metadata
     ADD COLUMN IF NOT EXISTS image_id uuid NOT NULL DEFAULT gen_random_uuid();
 CREATE UNIQUE INDEX IF NOT EXISTS image_metadata_image_id_idx
     ON image_metadata (image_id);
+UPDATE image_metadata
+SET search_vector =
+    setweight(to_tsvector('english', regexp_replace(name, '[._-]+', ' ', 'g')), 'A') ||
+    setweight(to_tsvector('english', caption), 'A') ||
+    setweight(to_tsvector('english', array_to_string(tags, ' ')), 'B');
 CREATE INDEX IF NOT EXISTS image_metadata_search_idx
     ON image_metadata USING gin (search_vector);
 CREATE INDEX IF NOT EXISTS image_metadata_tags_idx
@@ -93,6 +98,7 @@ class MetadataRepository:
                     (name, size_bytes, content_sha256, caption, tags, analysis_model,
                      public_url, search_vector)
                 VALUES (%s, %s, %s, %s, %s, %s, %s,
+                    setweight(to_tsvector('english', regexp_replace(%s, '[._-]+', ' ', 'g')), 'A') ||
                     setweight(to_tsvector('english', %s), 'A') ||
                     setweight(to_tsvector('english', %s), 'B'))
                 ON CONFLICT (name) DO UPDATE SET
@@ -110,7 +116,7 @@ class MetadataRepository:
                 """,
                 (name, size_bytes, content_sha256, caption, tags, analysis_model,
                  public_url,
-                 caption, " ".join(tags)),
+                 name, caption, " ".join(tags)),
             ).fetchone()
             metadata = self._row_to_metadata(row)
             if public_url:
@@ -140,12 +146,17 @@ class MetadataRepository:
             with psycopg.connect(self.database_url) as connection:
                 row = connection.execute(
                     """UPDATE image_metadata
-                       SET name = %s, updated_at = now()
+                       SET name = %s,
+                           search_vector =
+                               setweight(to_tsvector('english', regexp_replace(%s, '[._-]+', ' ', 'g')), 'A') ||
+                               setweight(to_tsvector('english', caption), 'A') ||
+                               setweight(to_tsvector('english', array_to_string(tags, ' ')), 'B'),
+                           updated_at = now()
                        WHERE name = %s AND hidden = false
                        RETURNING name, size_bytes, content_sha256, caption, tags,
                                  analysis_model, updated_at, hidden, favorite,
                                  public_url, image_id""",
-                    (new_name, name),
+                    (new_name, new_name, name),
                 ).fetchone()
         except psycopg.errors.UniqueViolation as error:
             raise FileExistsError(f"Image {new_name!r} already exists.") from error
@@ -167,6 +178,7 @@ class MetadataRepository:
                    SET caption = %s,
                        tags = %s,
                        search_vector =
+                           setweight(to_tsvector('english', regexp_replace(name, '[._-]+', ' ', 'g')), 'A') ||
                            setweight(to_tsvector('english', %s), 'A') ||
                            setweight(to_tsvector('english', %s), 'B'),
                        updated_at = now()

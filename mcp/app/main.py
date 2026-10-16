@@ -321,7 +321,7 @@ class LunaVisiaMCP:
             limit: int = 50,
             offset: int = 0,
         ) -> dict[str, Any]:
-            """Search non-hidden persisted captions/tags without opening image files."""
+            """Search non-hidden filenames, captions, and tags without opening files."""
             return vault.search(query, tags, match_all_tags, limit, offset)
 
         @self.mcp.tool()

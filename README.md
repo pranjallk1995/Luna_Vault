@@ -31,7 +31,7 @@ and searches.
   <img src="docs/assets/luna-visia-image-view.png" alt="AI assistant querying Luna Visia alongside its image gallery" width="900">
 </p>
 
-An MCP-connected AI assistant can query Luna Visia's generated captions and tags,
+An MCP-connected AI assistant can query Luna Visia's filenames, generated captions, and tags,
 answer collection-level questions, and return matching filenames without visually
 reprocessing every original image.
 
@@ -218,7 +218,7 @@ Luna Visia exposes these tools to connected MCP clients:
 
 - `update_image_metadata` - update a visible image's caption and/or add or remove tags without replacing the image or re-running vision analysis.
 - `set_favorite_images` - add or remove visible images from Favorites using exact filenames.
-- `search_images` - search captions and tags without opening original images.
+- `search_images` - search filenames, captions, and tags without opening original images.
 - `backfill_metadata` - generate missing or stale metadata for imported files.
 
 ### URL configuration
@@ -251,7 +251,7 @@ Run or resume an idempotent metadata backfill through the MCP `backfill_metadata
 
 ### `image_metadata`
 
-Stores one row per image: immutable UUID, filename, byte size, SHA-256 content hash, AI caption, normalized tag array, analysis model, creation and update timestamps, hidden state, favorite state, and optional public URL. A weighted PostgreSQL `tsvector` indexes captions and tags, with additional indexes for the immutable ID, tags, hashes, hidden images, and Favorites.
+Stores one row per image: immutable UUID, filename, byte size, SHA-256 content hash, AI caption, normalized tag array, analysis model, creation and update timestamps, hidden state, favorite state, and optional public URL. A weighted PostgreSQL `tsvector` indexes filenames, captions, and tags, with additional indexes for the immutable ID, tags, hashes, hidden images, and Favorites.
 
 The filename remains the storage key matching the image in the persistent `image_data` volume, while external references use the immutable UUID. Public URLs therefore survive filename changes. Legacy filename URLs remain readable for compatibility while that filename still exists. File mutations and metadata updates are coordinated by `ImageVaultService` so a failed operation does not intentionally leave half-applied state.
 
