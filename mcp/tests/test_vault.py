@@ -283,15 +283,29 @@ class ImageVaultServiceTests(unittest.TestCase):
         """Verify rename moves the file and preserves generated metadata."""
         original = self.service.ingest_base64("cat.png", png_payload())
         self.service.set_favorite(["cat.png"], True)
-        result = self.service.rename("cat.png", "favorite cat.png")
+        result = self.service.rename("cat.png", "favorite_cat.png")
         self.assertEqual(result["status"], "renamed")
         self.assertEqual(result["old_name"], "cat.png")
-        self.assertEqual(result["name"], "favorite cat.png")
+        self.assertEqual(result["name"], "favorite_cat.png")
         self.assertEqual(result["caption"], original["caption"])
         self.assertEqual(result["tags"], original["tags"])
         self.assertTrue(result["favorite"])
         self.assertFalse((Path(self.temp.name) / "cat.png").exists())
-        self.assertTrue((Path(self.temp.name) / "favorite cat.png").is_file())
+        self.assertTrue((Path(self.temp.name) / "favorite_cat.png").is_file())
+
+    def test_rename_rejects_disallowed_filename_characters(self):
+        """Allow underscores but reject spaces, hyphens, and special characters."""
+        self.service.ingest_base64("cat.png", png_payload())
+
+        for new_name in ("favorite cat.png", "favorite-cat.png", "cat!.png"):
+            with self.subTest(new_name=new_name):
+                with self.assertRaisesRegex(
+                    ValueError, "only letters, numbers, and underscores"
+                ):
+                    self.service.rename("cat.png", new_name)
+
+        self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
+        self.assertIn("cat.png", self.repository.rows)
 
     def test_rename_rejects_collision_without_changing_source(self):
         """Verify rename never overwrites an existing vault image."""

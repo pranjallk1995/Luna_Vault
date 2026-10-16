@@ -223,6 +223,11 @@ class ImageVaultService:
         """Rename a visible image and roll its file back if metadata update fails."""
         source = self.visible_path(name)
         destination = self.safe_path(new_name)
+        if not re.fullmatch(r"[A-Za-z0-9_]+", destination.stem):
+            raise ValueError(
+                "The new filename may contain only letters, numbers, and "
+                "underscores before the image extension."
+            )
         if source == destination:
             raise ValueError(
                 "The new image name must be different from the current name."

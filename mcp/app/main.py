@@ -296,7 +296,12 @@ class LunaVisiaMCP:
 
         @self.mcp.tool()
         def rename_image(name: str, new_name: str) -> dict[str, Any]:
-            """Rename an image while preserving its immutable ID and public URL."""
+            """Rename an image using only letters, numbers, and underscores.
+
+            Keep the existing image extension. Spaces, hyphens, and other
+            special characters are not allowed. The immutable ID and public URL
+            remain unchanged.
+            """
             return vault.rename(name, new_name)
 
         @self.mcp.tool()
