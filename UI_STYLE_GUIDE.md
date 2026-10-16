@@ -1,6 +1,6 @@
 # Luna UI style guide
 
-Shared visual reference for Luna Visia and Luna Vita.
+Shared visual reference for Luna Visia, Luna Vita, and Luna Lumia.
 
 ## Color palette
 
@@ -72,6 +72,17 @@ layout.
 
 - Before `LunaStyle.header()` runs, inject CSS only with `st.html(...)`, which
   does not create a visible layout block.
+- Vita and Lumia must use the same `2.35rem` desktop container top padding as
+  Visia. Keep Vita's header row intrinsic, matching Visia; forcing a fixed row
+  height pushes its navigation down. Lumia's tabs do not have the segmented-
+  control wrapper used by Visia, so their desktop tab-list top margin is
+  `1.2rem` to preserve the same on-screen navigation baseline.
+- Keep Vita's navigation in normal document flow. Do not apply `top`,
+  `transform`, or negative-margin corrections to
+  `.st-key-nutrition_navigation`; those corrections render the navbar too high
+  in the user's browser even when a headless measurement suggests otherwise.
+- Do not add invisible date, power, or navigation anchor elements inside the
+  header columns; Streamlit still allocates vertical gap around their wrappers.
 - Never place `st.container`, `st.markdown`, `st.empty`, `component_html`, or
   another layout-producing element before the header.
 - If JavaScript behavior is required, do not mount it ahead of the header.

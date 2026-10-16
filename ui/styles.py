@@ -306,8 +306,8 @@ class LunaStyle:
             div[data-testid="stHorizontalBlock"]:has(.lv-favorite-overlay) button[data-testid="stBaseButton-primary"] {
                 color:#ff3b5c!important;
             }
-            /* Keep navigation segments visually separated from one another. */
             .st-key-gallery_navigation div[data-testid="stButtonGroup"] {
+                margin:.2rem 0 1.15rem!important;
                 overflow:visible!important;
                 border-color:var(--lv-border)!important;
                 background:var(--lv-surface)!important;
@@ -353,12 +353,6 @@ class LunaStyle:
             .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[kind="primary"],[data-testid="stBaseButton-primary"]) span,
             .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:hover p,
             .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:hover span {
-                color:var(--lv-text)!important;
-                -webkit-text-fill-color:var(--lv-text)!important;
-            }
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]),
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]) p,
-            .st-key-gallery_navigation div[data-testid="stButtonGroup"] button:is([aria-pressed="true"],[aria-checked="true"],[data-state="on"],[kind="primary"],[data-testid="stBaseButton-primary"]) span {
                 color:var(--lv-text)!important;
                 -webkit-text-fill-color:var(--lv-text)!important;
             }
