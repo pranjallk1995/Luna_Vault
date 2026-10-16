@@ -393,7 +393,22 @@ class ViewPage(LunaVisiaUI):
                     """Save the inline tag field from Enter or the checkmark."""
                     new_tag = st.session_state.get(f"{tag_state}_draft", "").strip()
                     if not new_tag:
-                        st.session_state[tag_error_state] = "Enter a tag name."
+                        st.toast("Enter a tag name before adding it.", icon=":material/info:")
+                        st.session_state[tag_error_state] = None
+                        return
+                    normalized_tag = " ".join(new_tag.casefold().split())
+                    normalized_tags = {" ".join(tag.casefold().split()) for tag in tags}
+                    if normalized_tag in normalized_tags:
+                        st.toast("That tag is already on this image.", icon=":material/info:")
+                        st.session_state[tag_error_state] = None
+                        return
+                    if len(tags) >= UIConfig.MAX_TAGS:
+                        st.toast(
+                            f"Maximum of {UIConfig.MAX_TAGS} tags reached. "
+                            "Remove a tag before adding another.",
+                            icon=":material/info:",
+                        )
+                        st.session_state[tag_error_state] = None
                         return
                     try:
                         updated = self.update_image_metadata(
@@ -403,10 +418,12 @@ class ViewPage(LunaVisiaUI):
                         st.session_state[tag_state] = False
                         st.session_state[tag_error_state] = None
                         st.session_state[tag_pills_generation_state] += 1
-                    except httpx.HTTPError as error:
-                        st.session_state[tag_error_state] = (
-                            f"Could not add tag: {error}"
+                    except httpx.HTTPError:
+                        st.toast(
+                            "The tag could not be saved. Please try again.",
+                            icon=":material/info:",
                         )
+                        st.session_state[tag_error_state] = None
 
                 def remove_deselected_tags() -> None:
                     """Remove tags deselected from the interactive tag pills."""

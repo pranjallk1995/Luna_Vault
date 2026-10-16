@@ -347,6 +347,16 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertEqual(result["caption"], "A tabby cat on a sofa.")
         self.assertEqual(result["tags"], ["cat", "sofa", "pet portrait"])
 
+    def test_update_metadata_allows_manual_tag_after_sixteen_model_tags(self):
+        """Verify users can extend metadata that already has 16 generated tags."""
+        self.service.ingest_base64("cat.png", png_payload())
+        self.repository.rows["cat.png"]["tags"] = [
+            f"generated tag {index}" for index in range(16)
+        ]
+        result = self.service.update_metadata("cat.png", add_tags=["favorite"])
+        self.assertEqual(len(result["tags"]), 17)
+        self.assertEqual(result["tags"][-1], "favorite")
+
     def test_update_metadata_changes_caption_and_removes_tag(self):
         """Verify update metadata changes caption and removes tag."""
         self.service.ingest_base64("cat.png", png_payload())

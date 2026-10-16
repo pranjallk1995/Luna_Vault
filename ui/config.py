@@ -16,6 +16,7 @@ class UIConfig:
 
     UI_ROOT: ClassVar[Path] = Path(__file__).resolve().parent
     LOGO_PATH: ClassVar[Path] = UI_ROOT / "assets" / "lunavisia_logo.png"
+    MAX_TAGS: ClassVar[int] = 32
 
     image_dir: Path
     api_url: str

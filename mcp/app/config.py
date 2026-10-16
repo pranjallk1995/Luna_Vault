@@ -25,7 +25,7 @@ class AppConfig:
         }
     )
     max_image_bytes: int = 50 * 1024 * 1024
-    max_tags: int = 16
+    max_tags: int = 32
     search_limit_max: int = 100
     password_hash_iterations: int = 600_000
     hidden_session_seconds: int = 30 * 60
