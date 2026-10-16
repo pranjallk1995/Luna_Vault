@@ -363,6 +363,40 @@ class LunaStyle:
                 -webkit-text-fill-color:var(--lv-text)!important;
             }
             button:disabled { opacity:.42!important; transform:none!important; cursor:not-allowed!important; }
+            .st-key-confirm_view_delete button {
+                border-color:#f87171!important;
+                background:#fecaca!important;
+                color:#7f1d1d!important;
+            }
+            .st-key-confirm_view_delete button p,
+            .st-key-confirm_view_delete button span,
+            .st-key-confirm_view_delete button svg {
+                color:#7f1d1d!important;
+                fill:currentColor!important;
+                -webkit-text-fill-color:#7f1d1d!important;
+            }
+            .st-key-confirm_view_delete button:hover {
+                border-color:#fb7185!important;
+                background:#fda4af!important;
+                color:#881337!important;
+            }
+            .st-key-confirm_view_hide button {
+                border-color:#94a3b8!important;
+                background:#e2e8f0!important;
+                color:#1e293b!important;
+            }
+            .st-key-confirm_view_hide button p,
+            .st-key-confirm_view_hide button span,
+            .st-key-confirm_view_hide button svg {
+                color:#1e293b!important;
+                fill:currentColor!important;
+                -webkit-text-fill-color:#1e293b!important;
+            }
+            .st-key-confirm_view_hide button:hover {
+                border-color:#cbd5e1!important;
+                background:#cbd5e1!important;
+                color:#0f172a!important;
+            }
             div[data-baseweb="input"],div[data-baseweb="select"] > div { min-height:2.625rem; border-radius:.5rem!important; }
             .lv-gallery-transition { display:none; }
             @keyframes lv-gallery-out { to { opacity:0; transform:translateY(-16px); } }

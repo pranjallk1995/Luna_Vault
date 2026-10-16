@@ -5,41 +5,10 @@ import time
 from pathlib import Path
 
 import streamlit as st
-from PIL import Image, ImageOps
+from PIL import Image
 
 from api import LunaVisiaAPI
 from config import UIConfig
-
-
-@st.cache_data(show_spinner=False, max_entries=256)
-def cached_gallery_thumbnail(
-    image_path: str,
-    modified_ns: int,
-    max_size: tuple[int, int],
-) -> Image.Image:
-    """Build a natural-aspect thumbnail bounded to the gallery card size."""
-    del modified_ns  # Included in the cache key to invalidate modified images.
-
-    with Image.open(image_path) as source:
-        source.draft("RGB", max_size)
-        preview = ImageOps.exif_transpose(source).convert("RGB")
-        return ImageOps.fit(
-            preview,
-            max_size,
-            method=Image.Resampling.LANCZOS,
-            centering=(0.5, 0.5),
-        )
-
-
-@st.cache_data(show_spinner=False, max_entries=64)
-def cached_full_preview(image_path: str, modified_ns: int) -> Image.Image:
-    """Decode a stored image so Streamlit need not serve its filesystem path."""
-    del modified_ns  # Included in the cache key to invalidate replaced images.
-
-    with Image.open(image_path) as source:
-        preview = ImageOps.exif_transpose(source)
-        preview.load()
-        return preview.copy()
 
 
 class LunaVisiaUI:
@@ -171,7 +140,7 @@ class LunaVisiaUI:
 
     def create_gallery_thumbnail(self, image_path: Path) -> Image.Image:
         """Return a cached, aspect-preserving thumbnail for a vault image."""
-        return cached_gallery_thumbnail(
+        return UIConfig.gallery_thumbnail(
             str(image_path),
             image_path.stat().st_mtime_ns,
             self.config.card_size,
@@ -180,7 +149,9 @@ class LunaVisiaUI:
     @staticmethod
     def create_full_preview(image_path: Path) -> Image.Image:
         """Return a decoded image suitable for a full-size Streamlit preview."""
-        return cached_full_preview(str(image_path), image_path.stat().st_mtime_ns)
+        return UIConfig.full_preview(
+            str(image_path), image_path.stat().st_mtime_ns
+        )
 
     @staticmethod
     def change_gallery_page(

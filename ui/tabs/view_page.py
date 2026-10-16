@@ -5,20 +5,10 @@ from pathlib import Path
 
 import httpx
 import streamlit as st
-from PIL import Image
 from st_img_selector import st_img_selector
 
+from config import UIConfig
 from tabs.shared import LunaVisiaUI
-
-
-@st.cache_data(show_spinner=False, max_entries=256)
-def image_file_facts(image_path: str, modified_ns: int) -> tuple[int, int, int]:
-    """Return cached byte size and pixel dimensions for an image."""
-    del modified_ns
-    path = Path(image_path)
-    with Image.open(path) as source:
-        width, height = source.size
-    return path.stat().st_size, width, height
 
 
 class ViewPage(LunaVisiaUI):
@@ -151,7 +141,7 @@ class ViewPage(LunaVisiaUI):
             f"{html.escape(str(tag))}</span>"
             for index, tag in enumerate(tags)
         )
-        size, width, height = image_file_facts(
+        size, width, height = UIConfig.image_file_facts(
             str(image_path), image_path.stat().st_mtime_ns
         )
         if size >= 1024 * 1024:

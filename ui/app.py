@@ -19,7 +19,6 @@ from tabs.view_page import ViewImagesPage
 class LunaVisiaApp:
     """Compose and render the Luna Visia Streamlit interface."""
 
-    LOGO_PATH = Path(__file__).resolve().parent / "assets" / "lunavisia_logo.png"
     SECTION_KEY = "gallery-section"
     LAST_SECTION_KEY = "gallery-section-last"
 
@@ -35,7 +34,9 @@ class LunaVisiaApp:
     def source_revision(cls) -> str:
         source_root = Path(__file__).resolve().parent
         source_files = sorted(source_root.rglob("*.py"))
-        source_files.extend([source_root / ".streamlit" / "config.toml", cls.LOGO_PATH])
+        source_files.extend(
+            [source_root / ".streamlit" / "config.toml", UIConfig.LOGO_PATH]
+        )
         digest = hashlib.sha256()
         for source_file in source_files:
             if source_file.is_file():
@@ -53,7 +54,7 @@ class LunaVisiaApp:
 
     def render_header(self) -> bool:
         return LunaStyle.header(
-            self.LOGO_PATH,
+            UIConfig.LOGO_PATH,
             st.session_state.gallery_view_mode,
             self.set_gallery_view,
         )
@@ -136,7 +137,7 @@ class LunaVisiaApp:
     def run(cls) -> None:
         st.set_page_config(
             page_title="Luna Visia",
-            page_icon=Image.open(cls.LOGO_PATH),
+            page_icon=Image.open(UIConfig.LOGO_PATH),
             layout="wide",
             initial_sidebar_state="collapsed",
         )

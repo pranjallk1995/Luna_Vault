@@ -3,12 +3,19 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 from urllib.parse import urlparse
+
+import streamlit as st
+from PIL import Image, ImageOps
 
 
 @dataclass(frozen=True)
 class UIConfig:
     """Immutable UI layout and backend-connection settings."""
+
+    UI_ROOT: ClassVar[Path] = Path(__file__).resolve().parent
+    LOGO_PATH: ClassVar[Path] = UI_ROOT / "assets" / "lunavisia_logo.png"
 
     image_dir: Path
     api_url: str
@@ -23,6 +30,47 @@ class UIConfig:
     image_extensions: frozenset[str] = frozenset(
         {".gif", ".jpeg", ".jpg", ".png", ".webp"}
     )
+
+    @staticmethod
+    @st.cache_data(show_spinner=False, max_entries=256)
+    def gallery_thumbnail(
+        image_path: str,
+        modified_ns: int,
+        max_size: tuple[int, int],
+    ) -> Image.Image:
+        """Build a cached natural-aspect thumbnail for a gallery card."""
+        del modified_ns
+        with Image.open(image_path) as source:
+            source.draft("RGB", max_size)
+            preview = ImageOps.exif_transpose(source).convert("RGB")
+            return ImageOps.fit(
+                preview,
+                max_size,
+                method=Image.Resampling.LANCZOS,
+                centering=(0.5, 0.5),
+            )
+
+    @staticmethod
+    @st.cache_data(show_spinner=False, max_entries=64)
+    def full_preview(image_path: str, modified_ns: int) -> Image.Image:
+        """Decode and cache a stored image for full-size display."""
+        del modified_ns
+        with Image.open(image_path) as source:
+            preview = ImageOps.exif_transpose(source)
+            preview.load()
+            return preview.copy()
+
+    @staticmethod
+    @st.cache_data(show_spinner=False, max_entries=256)
+    def image_file_facts(
+        image_path: str, modified_ns: int
+    ) -> tuple[int, int, int]:
+        """Return cached byte size and pixel dimensions for an image."""
+        del modified_ns
+        path = Path(image_path)
+        with Image.open(path) as source:
+            width, height = source.size
+        return path.stat().st_size, width, height
 
     @classmethod
     def from_env(cls) -> "UIConfig":
