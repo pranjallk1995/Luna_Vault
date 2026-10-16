@@ -60,13 +60,14 @@ class FakeVault:
         return f"https://vault.example.test/vault/api/public/images/{name}"
 
     def rename(self, name: str, new_name: str):
+        public_url = self.public_url(name)
         self.visible_path(name).rename(self.root / new_name)
         self.renames.append((name, new_name))
         return {
             "status": "renamed",
             "old_name": name,
             "name": new_name,
-            "public_url": self.public_url(new_name),
+            "public_url": public_url,
         }
 
     def update_public_base_url(self, public_base_url: str):
@@ -137,29 +138,15 @@ class ImageDeliveryTests(unittest.TestCase):
             },
         )
 
-    def test_rename_image_requires_url_confirmation_then_returns_url_mapping(self):
+    def test_rename_image_preserves_public_url(self):
         server = LunaVisiaMCP(self.vault, object())
         tool = server.mcp._tool_manager.get_tool("rename_image")
 
-        confirmation = asyncio.run(
+        renamed = asyncio.run(
             tool.run({"name": "one.png", "new_name": "renamed.png"})
         )
-        self.assertEqual(confirmation["status"], "confirmation_required")
-        self.assertEqual(self.vault.renames, [])
-
-        renamed = asyncio.run(
-            tool.run(
-                {
-                    "name": "one.png",
-                    "new_name": "renamed.png",
-                    "rename_image_urls": True,
-                }
-            )
-        )
         self.assertEqual(self.vault.renames, [("one.png", "renamed.png")])
-        self.assertTrue(renamed["old_url"].endswith("/one.png"))
-        self.assertTrue(renamed["new_url"].endswith("/renamed.png"))
-        self.assertTrue(renamed["image_urls_renamed"])
+        self.assertTrue(renamed["public_url"].endswith("/one.png"))
 
     def test_set_public_base_url_updates_urls_from_chat(self) -> None:
         server = LunaVisiaMCP(self.vault, object())

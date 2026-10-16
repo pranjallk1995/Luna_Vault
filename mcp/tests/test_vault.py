@@ -44,8 +44,12 @@ class FakeRepository:
             "updated_at": "test",
             "hidden": self.rows.get(name, {}).get("hidden", False),
             "favorite": self.rows.get(name, {}).get("favorite", False),
+            "image_id": self.rows.get(name, {}).get("image_id", f"image-{len(self.rows) + 1}"),
             "public_url": public_url,
         }
+        if public_url:
+            base_url = public_url.split("/api/public/images/", 1)[0]
+            row["public_url"] = f"{base_url}/api/public/images/{row['image_id']}"
         self.rows[name] = row
         return row
 
@@ -63,7 +67,6 @@ class FakeRepository:
         row = {
             **self.rows.pop(name),
             "name": new_name,
-            "public_url": public_url,
         }
         self.rows[new_name] = row
         return row
@@ -121,9 +124,9 @@ class FakeRepository:
         """Seed the in-memory public URL configuration once."""
         if not self.configured_base_url:
             self.configured_base_url = public_base_url
-        for name, row in self.rows.items():
+        for row in self.rows.values():
             row["public_url"] = (
-                f"{self.configured_base_url}/api/public/images/{name}"
+                f"{self.configured_base_url}/api/public/images/{row['image_id']}"
             )
         return self.configured_base_url
 
@@ -134,9 +137,17 @@ class FakeRepository:
     def set_public_base_url(self, public_base_url):
         """Replace the in-memory public origin and refresh image URLs."""
         self.configured_base_url = public_base_url
-        for name, row in self.rows.items():
-            row["public_url"] = f"{public_base_url}/api/public/images/{name}"
+        for row in self.rows.values():
+            row["public_url"] = (
+                f"{public_base_url}/api/public/images/{row['image_id']}"
+            )
         return len(self.rows)
+
+    def name_for_image_id(self, image_id):
+        return next(
+            (name for name, row in self.rows.items() if row["image_id"] == image_id),
+            None,
+        )
 
     def search(self, query, tags, match_all, limit, offset):
         """Return matching visible metadata from the test repository."""
@@ -215,7 +226,7 @@ class ImageVaultServiceTests(unittest.TestCase):
         self.assertTrue((Path(self.temp.name) / "cat.png").is_file())
         self.assertEqual(
             result["public_url"],
-            "https://vault.example.test/vault/api/public/images/cat.png",
+            "https://vault.example.test/vault/api/public/images/image-1",
         )
 
     def test_public_url_rejects_hidden_images(self):
@@ -244,7 +255,7 @@ class ImageVaultServiceTests(unittest.TestCase):
         )
         self.assertEqual(
             self.repository.rows["cat.png"]["public_url"],
-            "https://new-device.example.test/vault/api/public/images/cat.png",
+            "https://new-device.example.test/vault/api/public/images/image-1",
         )
 
     def test_public_base_url_rejects_non_https_values(self):

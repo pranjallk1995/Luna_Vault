@@ -211,7 +211,7 @@ Luna Visia exposes these tools to connected MCP clients:
 - `add_image` - programmatically add Base64 image data and generate metadata.
 - `upload_image` - upload a file attached to the user's ChatGPT message through ChatGPT's native file parameter, then generate metadata.
 - `modify_image` - replace a visible image and refresh its metadata.
-- `rename_image` - ask for explicit confirmation that the filename-based public image URL will also change, then safely rename the visible file and metadata without re-running vision analysis. A completed rename returns the old and new URLs for updating external references.
+- `rename_image` - safely rename a visible image file and its metadata without re-running vision analysis; its immutable image ID and public URL remain unchanged.
 - `remove_image` - delete a visible image and its metadata.
 
 ### Metadata, search, and collections
@@ -251,9 +251,9 @@ Run or resume an idempotent metadata backfill through the MCP `backfill_metadata
 
 ### `image_metadata`
 
-Stores one row per image: filename, byte size, SHA-256 content hash, AI caption, normalized tag array, analysis model, creation and update timestamps, hidden state, favorite state, and optional public URL. A weighted PostgreSQL `tsvector` indexes captions and tags, with additional indexes for tags, hashes, hidden images, and Favorites.
+Stores one row per image: immutable UUID, filename, byte size, SHA-256 content hash, AI caption, normalized tag array, analysis model, creation and update timestamps, hidden state, favorite state, and optional public URL. A weighted PostgreSQL `tsvector` indexes captions and tags, with additional indexes for the immutable ID, tags, hashes, hidden images, and Favorites.
 
-The filename is the primary key and matches the image in the persistent `image_data` volume. File mutations and metadata updates are coordinated by `ImageVaultService` so a failed operation does not intentionally leave half-applied state.
+The filename remains the storage key matching the image in the persistent `image_data` volume, while external references use the immutable UUID. Public URLs therefore survive filename changes. Legacy filename URLs remain readable for compatibility while that filename still exists. File mutations and metadata updates are coordinated by `ImageVaultService` so a failed operation does not intentionally leave half-applied state.
 
 ### `vault_security`
 
@@ -261,7 +261,7 @@ Stores the hidden vault's singleton security record: password salt and hash, res
 
 ### `vault_config`
 
-Stores the singleton optional public base URL used to generate per-image URLs. Updating it refreshes the derived URL for every metadata record without changing the image files.
+Stores the singleton optional public base URL used to generate immutable-ID image URLs. Updating the origin refreshes each URL without changing its image ID or filename.
 
 The idempotent schema in `mcp/app/database.py` runs when the MCP service starts and applies additive upgrades for existing installations.
 

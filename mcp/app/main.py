@@ -295,43 +295,9 @@ class LunaVisiaMCP:
             }
 
         @self.mcp.tool()
-        def rename_image(
-            name: str,
-            new_name: str,
-            rename_image_urls: bool | None = None,
-        ) -> dict[str, Any]:
-            """Rename a visible image file after explicit URL-change confirmation.
-
-            Call first without rename_image_urls so the user is asked whether the
-            public image URL should be renamed too. The file rename cannot proceed
-            while retaining its old filename-based URL. Call again with true to
-            approve both changes, or false to cancel. A completed rename returns
-            old_url and new_url so references in other applications can be updated.
-            """
-            if rename_image_urls is None:
-                return {
-                    "status": "confirmation_required",
-                    "name": name,
-                    "new_name": new_name,
-                    "question": (
-                        "Renaming this file also changes its public image URL. "
-                        "Rename the image URL as well?"
-                    ),
-                }
-            if not rename_image_urls:
-                return {
-                    "status": "cancelled",
-                    "name": name,
-                    "new_name": new_name,
-                }
-            old_url = vault.public_url(name)
-            renamed = vault.rename(name, new_name)
-            return {
-                **renamed,
-                "old_url": old_url,
-                "new_url": renamed.get("public_url"),
-                "image_urls_renamed": True,
-            }
+        def rename_image(name: str, new_name: str) -> dict[str, Any]:
+            """Rename an image while preserving its immutable ID and public URL."""
+            return vault.rename(name, new_name)
 
         @self.mcp.tool()
         def set_favorite_images(names: list[str], favorite: bool) -> dict[str, Any]:
@@ -402,7 +368,7 @@ class LunaVisiaMCP:
         async def public_image_route(request: Request) -> FileResponse | JSONResponse:
             """Serve one visible image through the configured HTTPS origin."""
             try:
-                path = vault.visible_path(request.path_params["name"])
+                path = vault.public_path(request.path_params["name"])
                 return FileResponse(
                     path,
                     headers={

@@ -10,6 +10,7 @@ from .config import AppConfig
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS image_metadata (
     name text PRIMARY KEY,
+    image_id uuid NOT NULL DEFAULT gen_random_uuid(),
     size_bytes bigint NOT NULL CHECK (size_bytes >= 0),
     content_sha256 char(64) NOT NULL,
     caption text NOT NULL,
@@ -28,6 +29,10 @@ ALTER TABLE image_metadata
     ADD COLUMN IF NOT EXISTS favorite boolean NOT NULL DEFAULT false;
 ALTER TABLE image_metadata
     ADD COLUMN IF NOT EXISTS public_url text;
+ALTER TABLE image_metadata
+    ADD COLUMN IF NOT EXISTS image_id uuid NOT NULL DEFAULT gen_random_uuid();
+CREATE UNIQUE INDEX IF NOT EXISTS image_metadata_image_id_idx
+    ON image_metadata (image_id);
 CREATE INDEX IF NOT EXISTS image_metadata_search_idx
     ON image_metadata USING gin (search_vector);
 CREATE INDEX IF NOT EXISTS image_metadata_tags_idx
@@ -69,7 +74,7 @@ class MetadataRepository:
             "name": row[0], "size_bytes": row[1], "content_sha256": row[2],
             "caption": row[3], "tags": row[4], "analysis_model": row[5],
             "updated_at": row[6].isoformat(), "hidden": row[7], "favorite": row[8],
-            "public_url": row[9],
+            "public_url": row[9], "image_id": str(row[10]),
         }
 
     def initialize(self) -> None:
@@ -100,12 +105,26 @@ class MetadataRepository:
                     search_vector = EXCLUDED.search_vector,
                     updated_at = now()
                 RETURNING name, size_bytes, content_sha256, caption, tags,
-                          analysis_model, updated_at, hidden, favorite, public_url
+                          analysis_model, updated_at, hidden, favorite, public_url,
+                          image_id
                 """,
                 (name, size_bytes, content_sha256, caption, tags, analysis_model,
                  public_url,
                  caption, " ".join(tags)),
             ).fetchone()
+            metadata = self._row_to_metadata(row)
+            if public_url:
+                public_base_url = public_url.split("/api/public/images/", 1)[0]
+                stable_url = self._public_url(
+                    public_base_url, metadata["image_id"]
+                )
+                row = connection.execute(
+                    """UPDATE image_metadata SET public_url = %s WHERE name = %s
+                       RETURNING name, size_bytes, content_sha256, caption, tags,
+                                 analysis_model, updated_at, hidden, favorite,
+                                 public_url, image_id""",
+                    (stable_url, name),
+                ).fetchone()
         return self._row_to_metadata(row)
 
     def delete(self, name: str) -> None:
@@ -121,12 +140,12 @@ class MetadataRepository:
             with psycopg.connect(self.database_url) as connection:
                 row = connection.execute(
                     """UPDATE image_metadata
-                       SET name = %s, public_url = %s, updated_at = now()
+                       SET name = %s, updated_at = now()
                        WHERE name = %s AND hidden = false
                        RETURNING name, size_bytes, content_sha256, caption, tags,
                                  analysis_model, updated_at, hidden, favorite,
-                                 public_url""",
-                    (new_name, public_url, name),
+                                 public_url, image_id""",
+                    (new_name, name),
                 ).fetchone()
         except psycopg.errors.UniqueViolation as error:
             raise FileExistsError(f"Image {new_name!r} already exists.") from error
@@ -154,7 +173,7 @@ class MetadataRepository:
                    WHERE name = %s AND hidden = %s
                    RETURNING name, size_bytes, content_sha256, caption, tags,
                              analysis_model, updated_at, hidden, favorite,
-                             public_url""",
+                             public_url, image_id""",
                 (caption, tags, caption, " ".join(tags), name, hidden),
             ).fetchone()
         if row is None:
@@ -168,7 +187,8 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             rows = connection.execute(
                 f"""SELECT name, size_bytes, content_sha256, caption, tags,
-                           analysis_model, updated_at, hidden, favorite, public_url
+                           analysis_model, updated_at, hidden, favorite, public_url,
+                           image_id
                     FROM image_metadata {where}
                     ORDER BY updated_at DESC, name""",
                 parameters,
@@ -202,7 +222,8 @@ class MetadataRepository:
         with psycopg.connect(self.database_url) as connection:
             rows = connection.execute(
                 """SELECT name, size_bytes, content_sha256, caption, tags,
-                          analysis_model, updated_at, hidden, favorite, public_url
+                          analysis_model, updated_at, hidden, favorite, public_url,
+                          image_id
                    FROM image_metadata
                    WHERE favorite = true AND hidden = false
                    ORDER BY updated_at DESC, name"""
@@ -210,8 +231,17 @@ class MetadataRepository:
         return [self._row_to_metadata(row) for row in rows]
 
     @staticmethod
-    def _public_url(public_base_url: str, name: str) -> str:
-        return f"{public_base_url}/api/public/images/{quote(name, safe='')}"
+    def _public_url(public_base_url: str, image_id: str) -> str:
+        return f"{public_base_url}/api/public/images/{quote(str(image_id), safe='')}"
+
+    def name_for_image_id(self, image_id: str) -> str | None:
+        """Resolve an immutable public identifier to its current filename."""
+        with psycopg.connect(self.database_url) as connection:
+            row = connection.execute(
+                "SELECT name FROM image_metadata WHERE image_id::text = %s",
+                (image_id,),
+            ).fetchone()
+        return row[0] if row else None
 
     def initialize_public_base_url(self, default_url: str) -> str:
         """Seed mutable URL configuration once and refresh stored image URLs."""
@@ -229,13 +259,15 @@ class MetadataRepository:
             public_base_url = row[0] if row else ""
             if not public_base_url:
                 return ""
-            names = connection.execute("SELECT name FROM image_metadata").fetchall()
+            images = connection.execute(
+                "SELECT name, image_id FROM image_metadata"
+            ).fetchall()
             with connection.cursor() as cursor:
                 cursor.executemany(
                     "UPDATE image_metadata SET public_url = %s WHERE name = %s",
                     [
-                        (self._public_url(public_base_url, name), name)
-                        for (name,) in names
+                        (self._public_url(public_base_url, image_id), name)
+                        for name, image_id in images
                     ],
                 )
         return public_base_url
@@ -259,16 +291,18 @@ class MetadataRepository:
                        updated_at = now()""",
                 (public_base_url,),
             )
-            names = connection.execute("SELECT name FROM image_metadata").fetchall()
+            images = connection.execute(
+                "SELECT name, image_id FROM image_metadata"
+            ).fetchall()
             with connection.cursor() as cursor:
                 cursor.executemany(
                     "UPDATE image_metadata SET public_url = %s WHERE name = %s",
                     [
-                        (self._public_url(public_base_url, name), name)
-                        for (name,) in names
+                        (self._public_url(public_base_url, image_id), name)
+                        for name, image_id in images
                     ],
                 )
-        return len(names)
+        return len(images)
 
     def set_favorite(self, names: list[str], favorite: bool) -> list[str]:
         """Set favorite state for visible images."""

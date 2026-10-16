@@ -81,7 +81,22 @@ class ImageVaultService:
     def public_url(self, name: str) -> str:
         """Return the configured public HTTPS URL for a visible image."""
         self.visible_path(name)
-        return self.url_for_name(name)
+        metadata = next(
+            (
+                item
+                for item in self.repository.list_all(hidden=False)
+                if item["name"] == name
+            ),
+            None,
+        )
+        if metadata is None:
+            raise FileNotFoundError(f"Image {name!r} was not found.")
+        return metadata["public_url"]
+
+    def public_path(self, identifier: str) -> Path:
+        """Resolve a stable image ID, with legacy filename compatibility."""
+        name = self.repository.name_for_image_id(identifier)
+        return self.visible_path(name or identifier)
 
     def safe_path(self, name: str) -> Path:
         """Resolve a supported plain filename without allowing path escape."""
@@ -222,7 +237,6 @@ class ImageVaultService:
             metadata = self.repository.rename(
                 name,
                 new_name,
-                self.url_for_name(new_name),
             )
         except Exception:
             # Keep the file and its primary-key metadata aligned on database failure.
