@@ -179,9 +179,9 @@ class HiddenPage(LunaVisiaUI):
         filtered = [
             path
             for path in hidden_images
-            if query in self.display_name(path.name).casefold()
+            if self.image_matches_search(path, hidden_metadata, query)
         ]
         if query and not filtered:
-            st.info("No hidden image names match your search.")
+            st.info("No hidden filenames or tags match your search.")
             return
         HiddenGallery(self.config).render(filtered, hidden_metadata)

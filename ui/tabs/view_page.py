@@ -601,9 +601,9 @@ class ViewImagesPage(LunaVisiaUI):
         filtered = [
             path
             for path in vault_images
-            if query in self.display_name(path.name).casefold()
+            if self.image_matches_search(path, metadata_by_name, query)
         ]
         if query and not filtered:
-            st.info("No image names match your search.")
+            st.info("No filenames or tags match your search.")
             return
         ViewPage(self.config).render(filtered, metadata_by_name)

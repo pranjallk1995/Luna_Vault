@@ -60,9 +60,9 @@ class FavoritesPage(LunaVisiaUI):
         filtered = [
             path
             for path in favorite_images
-            if query in self.display_name(path.name).casefold()
+            if self.image_matches_search(path, metadata_by_name, query)
         ]
         if query and not filtered:
-            st.info("No favorite image names match your search.")
+            st.info("No favorite filenames or tags match your search.")
             return
         FavoriteGallery(self.config).render(filtered, metadata_by_name)

@@ -45,10 +45,21 @@ class LunaVisiaUI:
         """Use a compact search hint on mobile displays."""
         user_agent = st.context.headers.get("User-Agent", "")
         return (
-            "Filename"
+            "Name or tag"
             if self._is_mobile_user_agent(user_agent)
-            else "Type part of a filename"
+            else "Search by filename or tag"
         )
+
+    def image_matches_search(
+        self, image_path: Path, metadata_by_name: dict[str, dict], query: str
+    ) -> bool:
+        """Match a normalized query against an image filename or its tags."""
+        if not query:
+            return True
+        if query in self.display_name(image_path.name).casefold():
+            return True
+        metadata = metadata_by_name.get(image_path.name) or {}
+        return any(query in str(tag).casefold() for tag in metadata.get("tags", []))
 
     @staticmethod
     def initialize_state() -> None:
