@@ -7,92 +7,62 @@ import secrets
 import threading
 import time
 
-from .config import AppConfig
-from .database import MetadataRepository
+from .repositories import CredentialRepository, StoredCredentials
 
 
-class HiddenVaultAuth:
-    """Persist hashed credentials and issue short-lived in-memory sessions."""
+class CredentialPolicy:
+    """Validate and hash Hidden Vault secrets."""
 
-    def __init__(self, repository: MetadataRepository, config: AppConfig) -> None:
-        """Initialize this component and its required dependencies."""
-        self.repository = repository
-        self.iterations = config.password_hash_iterations
-        self.session_seconds = config.hidden_session_seconds
-        self._sessions: dict[str, float] = {}
-        self._lock = threading.Lock()
+    SALT_BYTES = 16
 
-    @staticmethod
-    def _hash(value: str, salt: bytes, iterations: int) -> bytes:
-        """Derive a password hash using the configured salt and iteration count."""
-        return hashlib.pbkdf2_hmac("sha256", value.encode(), salt, iterations)
+    def __init__(self, iterations: int) -> None:
+        self.iterations = iterations
 
     @staticmethod
     def validate_password(password: str) -> None:
-        """Validate a Hidden Vault password against policy."""
         if len(password) < 8:
             raise ValueError("Password must contain at least 8 characters.")
 
     @staticmethod
     def validate_pin(pin: str) -> None:
-        """Validate that a reset PIN contains exactly eight digits."""
         if not re.fullmatch(r"\d{8}", pin):
             raise ValueError("Reset PIN must be exactly 8 digits.")
 
-    def configured(self) -> bool:
-        """Return whether Hidden Vault credentials have been configured."""
-        return self.repository.security_credentials() is not None
+    @staticmethod
+    def hash(value: str, salt: bytes, iterations: int) -> bytes:
+        """Derive a PBKDF2-SHA256 hash for ``value``."""
+        return hashlib.pbkdf2_hmac("sha256", value.encode(), salt, iterations)
 
-    def _new_session(self) -> str:
-        """Create and retain a new authenticated Hidden Vault session."""
+    def new_hash(self, value: str) -> tuple[bytes, bytes]:
+        """Return a fresh salt and the hash of ``value`` with it."""
+        salt = secrets.token_bytes(self.SALT_BYTES)
+        return salt, self.hash(value, salt, self.iterations)
+
+    def matches(self, value: str, salt: bytes, expected: bytes, iterations: int) -> bool:
+        """Compare in constant time using the iteration count stored with the hash."""
+        return hmac.compare_digest(self.hash(value, salt, iterations), expected)
+
+
+class SessionStore:
+    """Process-local sliding-expiry session tokens.
+
+    Tokens stay in memory so database access cannot reveal them.
+    """
+
+    def __init__(self, session_seconds: int) -> None:
+        self.session_seconds = session_seconds
+        self._sessions: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def create(self) -> str:
         token = secrets.token_urlsafe(32)
         now = time.monotonic()
         with self._lock:
-            self._sessions = {key: expiry for key, expiry in self._sessions.items() if expiry > now}
-            # Session tokens remain process-local so database access cannot reveal them.
+            self._sessions = {
+                key: expiry for key, expiry in self._sessions.items() if expiry > now
+            }
             self._sessions[token] = now + self.session_seconds
         return token
-
-    def setup(self, password: str, pin: str) -> str:
-        """Create hidden-vault credentials and return a new session token."""
-        self.validate_password(password)
-        self.validate_pin(pin)
-        password_salt, pin_salt = secrets.token_bytes(16), secrets.token_bytes(16)
-        created = self.repository.create_security_credentials(
-            password_salt, self._hash(password, password_salt, self.iterations),
-            pin_salt, self._hash(pin, pin_salt, self.iterations), self.iterations,
-        )
-        if not created:
-            raise ValueError("A hidden-vault password has already been created.")
-        return self._new_session()
-
-    def login(self, password: str) -> str:
-        """Verify the password in constant time and create a session token."""
-        credentials = self.repository.security_credentials()
-        if credentials is None:
-            raise ValueError("Create a hidden-vault password first.")
-        password_salt, password_hash, _, _, iterations = credentials
-        if not hmac.compare_digest(self._hash(password, password_salt, iterations), password_hash):
-            raise PermissionError("Incorrect password.")
-        return self._new_session()
-
-    def reset(self, pin: str, new_password: str) -> str:
-        """Replace the password after validating the eight-digit reset PIN."""
-        self.validate_pin(pin)
-        self.validate_password(new_password)
-        credentials = self.repository.security_credentials()
-        if credentials is None:
-            raise ValueError("Create a hidden-vault password first.")
-        _, _, pin_salt, pin_hash, iterations = credentials
-        if not hmac.compare_digest(self._hash(pin, pin_salt, iterations), pin_hash):
-            raise PermissionError("Incorrect reset PIN.")
-        password_salt = secrets.token_bytes(16)
-        self.repository.update_password(
-            password_salt, self._hash(new_password, password_salt, self.iterations), self.iterations
-        )
-        with self._lock:
-            self._sessions.clear()
-        return self._new_session()
 
     def require(self, token: str | None) -> None:
         """Require a live token and extend its sliding expiration window."""
@@ -102,10 +72,78 @@ class HiddenVaultAuth:
             if expiry <= now:
                 self._sessions.pop(token or "", None)
                 raise PermissionError("Hidden-vault session is missing or expired.")
-            # Successful activity renews the sliding expiration window.
             self._sessions[token] = now + self.session_seconds
 
-    def logout(self, token: str | None) -> None:
-        """Invalidate a Hidden Vault session token."""
+    def revoke(self, token: str | None) -> None:
         with self._lock:
             self._sessions.pop(token or "", None)
+
+    def revoke_all(self) -> None:
+        with self._lock:
+            self._sessions.clear()
+
+
+class HiddenVaultAuth:
+    """Persist hashed credentials and issue short-lived in-memory sessions."""
+
+    def __init__(
+        self,
+        credentials: CredentialRepository,
+        policy: CredentialPolicy,
+        sessions: SessionStore,
+    ) -> None:
+        self.credentials = credentials
+        self.policy = policy
+        self.sessions = sessions
+
+    def configured(self) -> bool:
+        """Return whether Hidden Vault credentials have been configured."""
+        return self.credentials.get() is not None
+
+    def _stored(self) -> StoredCredentials:
+        stored = self.credentials.get()
+        if stored is None:
+            raise ValueError("Create a hidden-vault password first.")
+        return stored
+
+    def setup(self, password: str, pin: str) -> str:
+        """Create hidden-vault credentials and return a new session token."""
+        self.policy.validate_password(password)
+        self.policy.validate_pin(pin)
+        password_salt, password_hash = self.policy.new_hash(password)
+        pin_salt, pin_hash = self.policy.new_hash(pin)
+        created = self.credentials.create(
+            StoredCredentials(
+                password_salt, password_hash, pin_salt, pin_hash, self.policy.iterations
+            )
+        )
+        if not created:
+            raise ValueError("A hidden-vault password has already been created.")
+        return self.sessions.create()
+
+    def login(self, password: str) -> str:
+        """Verify the password and create a session token."""
+        stored = self._stored()
+        if not self.policy.matches(
+            password, stored.password_salt, stored.password_hash, stored.iterations
+        ):
+            raise PermissionError("Incorrect password.")
+        return self.sessions.create()
+
+    def reset(self, pin: str, new_password: str) -> str:
+        """Replace the password after validating the eight-digit reset PIN."""
+        self.policy.validate_pin(pin)
+        self.policy.validate_password(new_password)
+        stored = self._stored()
+        if not self.policy.matches(pin, stored.pin_salt, stored.pin_hash, stored.iterations):
+            raise PermissionError("Incorrect reset PIN.")
+        salt, password_hash = self.policy.new_hash(new_password)
+        self.credentials.update_password(salt, password_hash, self.policy.iterations)
+        self.sessions.revoke_all()
+        return self.sessions.create()
+
+    def require(self, token: str | None) -> None:
+        self.sessions.require(token)
+
+    def logout(self, token: str | None) -> None:
+        self.sessions.revoke(token)

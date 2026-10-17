@@ -1,141 +1,59 @@
-"""Shared Streamlit gallery and state helpers."""
+"""Shared Streamlit building blocks for the Luna Visia tabs."""
 
 import html
-import time
-from pathlib import Path
+from dataclasses import dataclass
 
 import streamlit as st
-from PIL import Image
 
 from api import LunaVisiaAPI
 from config import UIConfig
+from images import ImageCollection, ImageFiles
+from state import SessionState
 
 
-class LunaVisiaUI:
-    """Provide shared state, image, pagination, and gallery UI behavior."""
+class ResponsiveLayout:
+    """Adapt gallery density and copy to phone, tablet, or desktop browsers."""
+
+    MOBILE_TOKENS = ("android", "iphone", "ipad", "ipod", "mobile")
 
     def __init__(self, config: UIConfig) -> None:
-        """Initialize this component and its required dependencies."""
         self.config = config
-        self.api = LunaVisiaAPI(config)
-        self.image_dir = config.image_dir
-        self.image_dir.mkdir(parents=True, exist_ok=True)
 
-    @staticmethod
-    def _is_mobile_user_agent(user_agent: str) -> bool:
-        """Identify common phone and tablet browser user agents."""
-        normalized = user_agent.casefold()
-        return any(
-            token in normalized
-            for token in ("android", "iphone", "ipad", "ipod", "mobile")
-        )
+    @classmethod
+    def is_mobile(cls) -> bool:
+        user_agent = st.context.headers.get("User-Agent", "").casefold()
+        return any(token in user_agent for token in cls.MOBILE_TOKENS)
 
-    def gallery_column_count(self) -> int:
-        """Use one gallery column on mobile and the configured count elsewhere."""
-        if st.session_state.get("gallery_view_mode") == "list":
+    def gallery_columns(self) -> int:
+        """Use one column in list view or on mobile, otherwise the configured count."""
+        if SessionState.is_list_view() or self.is_mobile():
             return 1
-        user_agent = st.context.headers.get("User-Agent", "")
-        return (
-            1
-            if self._is_mobile_user_agent(user_agent)
-            else self.config.gallery_columns
-        )
+        return self.config.gallery_columns
 
-    def gallery_search_placeholder(self) -> str:
-        """Use a compact search hint on mobile displays."""
-        user_agent = st.context.headers.get("User-Agent", "")
-        return (
-            "Name or tag"
-            if self._is_mobile_user_agent(user_agent)
-            else "Search by filename or tag"
-        )
+    def search_placeholder(self) -> str:
+        return "Name or tag" if self.is_mobile() else "Search by filename or tag"
 
-    def image_matches_search(
-        self, image_path: Path, metadata_by_name: dict[str, dict], query: str
-    ) -> bool:
-        """Match a normalized query against an image filename or its tags."""
-        if not query:
-            return True
-        if query in self.display_name(image_path.name).casefold():
-            return True
-        metadata = metadata_by_name.get(image_path.name) or {}
-        return any(query in str(tag).casefold() for tag in metadata.get("tags", []))
+
+@dataclass(frozen=True)
+class VisiaContext:
+    """Dependencies every tab, gallery, and dialog needs."""
+
+    api: LunaVisiaAPI
+    config: UIConfig
+    files: ImageFiles
+    layout: ResponsiveLayout
+
+    @classmethod
+    def create(cls, config: UIConfig) -> "VisiaContext":
+        return cls(LunaVisiaAPI(config), config, ImageFiles(config), ResponsiveLayout(config))
+
+
+class ImageLabel:
+    """A single-line, truncated filename with its full value as a tooltip."""
 
     @staticmethod
-    def initialize_state() -> None:
-        """Initialize all Streamlit session-state values used by the application."""
-        defaults = {
-            "color_theme": "dark",
-            "gallery_view_mode": "grid",
-            "saved_uploads": set(),
-            "uploaded_images": [],
-            "uploader_key": 0,
-            "gallery_generation": 0,
-            "gallery_page": 0,
-            "gallery_selection": set(),
-            "pending_delete": [],
-            "view_generation": 0,
-            "view_selector_generations": {},
-            "view_page": 0,
-            "pending_view_delete": None,
-            "pending_view_hide": None,
-            "download_generation": 0,
-            "download_page": 0,
-            "download_selection": set(),
-            "hidden_auth_token": None,
-            "hidden_generation": 0,
-            "hidden_page": 0,
-            "hidden_selection": set(),
-            "pending_hidden_delete": None,
-            "hide_generation": 0,
-            "hide_page": 0,
-            "hide_selection": set(),
-            "favorite_generation": 0,
-            "favorite_page": 0,
-            "favorite_selection": set(),
-            "pending_favorite_delete": None,
-            "add_favorite_generation": 0,
-            "add_favorite_page": 0,
-            "add_favorite_selection": set(),
-            "gallery_transitions": {},
-        }
-        for key, value in defaults.items():
-            if key not in st.session_state:
-                st.session_state[key] = value
-
-    @staticmethod
-    def clear_search(state_key: str) -> None:
-        """Reset a named search field in Streamlit session state."""
-        st.session_state[state_key] = ""
-
-    def list_vault_images(self) -> list[Path]:
-        """List supported vault files newest first without decoding images."""
-        return sorted(
-            (
-                path
-                for path in self.image_dir.iterdir()
-                if path.is_file()
-                and path.suffix.lower() in self.config.image_extensions
-            ),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )
-
-    @staticmethod
-    def display_name(stored_name: str) -> str:
-        """Remove the internal storage prefix from a user-facing filename."""
-        prefix, separator, original_name = stored_name.partition("_")
-        if (
-            separator
-            and len(prefix) == 32
-            and all(character in "0123456789abcdef" for character in prefix.lower())
-        ):
-            return original_name
-        return stored_name
-
-    def render_image_name(self, container, stored_name: str) -> None:
-        """Render a single-line, truncated filename with its full value as a tooltip."""
-        display_name = html.escape(self.display_name(stored_name), quote=True)
+    def render(container, stored_name: str) -> None:
+        display_name = html.escape(ImageFiles.display_name(stored_name), quote=True)
         container.markdown(
             f"""<div title="{display_name}" style="
                 white-space: nowrap;
@@ -149,155 +67,46 @@ class LunaVisiaUI:
             unsafe_allow_html=True,
         )
 
-    def create_gallery_thumbnail(self, image_path: Path) -> Image.Image:
-        """Return a cached, aspect-preserving thumbnail for a vault image."""
-        return UIConfig.gallery_thumbnail(
-            str(image_path),
-            image_path.stat().st_mtime_ns,
-            self.config.card_size,
-        )
 
-    @staticmethod
-    def create_full_preview(image_path: Path) -> Image.Image:
-        """Return a decoded image suitable for a full-size Streamlit preview."""
-        return UIConfig.full_preview(
-            str(image_path), image_path.stat().st_mtime_ns
-        )
+class SearchFilter:
+    """A filename/tag search box that narrows an image collection."""
 
-    @staticmethod
-    def change_gallery_page(
-        state_key: str, selector_key: str, target_page: int
+    def __init__(
+        self, layout: ResponsiveLayout, key: str, label: str, no_match_message: str
     ) -> None:
-        """Queue a button-driven page change so the old grid can animate out."""
-        st.session_state.gallery_transitions[state_key] = {
-            "phase": "out",
-            "target": target_page,
-        }
-        st.session_state[selector_key] = target_page + 1
+        self.layout = layout
+        self.key = key
+        self.label = label
+        self.no_match_message = no_match_message
 
-    @staticmethod
-    def sync_gallery_page(state_key: str, selector_key: str) -> None:
-        """Queue a selector-driven page change without replacing widget state."""
-        target_page = st.session_state[selector_key] - 1
-        if target_page != st.session_state[state_key]:
-            st.session_state.gallery_transitions[state_key] = {
-                "phase": "out",
-                "target": target_page,
-            }
-
-    @staticmethod
-    def gallery_transition_phase(state_key: str) -> str:
-        """Return the active animation phase for a gallery."""
-        transition = st.session_state.gallery_transitions.get(state_key)
-        return transition["phase"] if transition else "idle"
-
-    def render_gallery_transition_marker(self, state_key: str) -> None:
-        """Mark the current gallery rerun for its scoped CSS animation."""
-        phase = self.gallery_transition_phase(state_key)
-        st.markdown(
-            f'<span class="lv-gallery-transition lv-gallery-{phase}"></span>',
-            unsafe_allow_html=True,
+    def apply(self, collection: ImageCollection) -> ImageCollection | None:
+        """Return the matches, or None after reporting that a query matched nothing."""
+        query = (
+            st.text_input(
+                self.label,
+                placeholder=self.layout.search_placeholder(),
+                key=self.key,
+                icon=":material/search:",
+                label_visibility="collapsed",
+            )
+            .strip()
+            .casefold()
         )
+        filtered = collection.matching(query)
+        if query and not filtered.images:
+            st.info(self.no_match_message)
+            return None
+        return filtered
 
-    @staticmethod
-    def finish_gallery_transition(state_key: str) -> None:
-        """Finish exit plus a short gap, then rerun the target page for entry."""
-        transition = st.session_state.gallery_transitions.get(state_key)
-        if not transition:
-            return
-        if transition["phase"] == "out":
-            # Deltas for the old grid are already emitted. Keep it mounted through
-            # the 160 ms exit and a brief 50 ms pause before swapping page state.
-            time.sleep(0.21)
-            st.session_state[state_key] = transition["target"]
-            transition["phase"] = "in"
-            st.rerun()
-        st.session_state.gallery_transitions.pop(state_key, None)
 
-    def render_gallery_navigation(
-        self, page_count: int, state_key: str, key_prefix: str
-    ) -> int:
-        """Render callback-driven controls and return the bounded page index."""
-        current_page = min(max(st.session_state[state_key], 0), page_count - 1)
-        st.session_state[state_key] = current_page
-        selector_key = f"{key_prefix}_page"
-        exiting = self.gallery_transition_phase(state_key) == "out"
+class VisiaTab:
+    """Base class giving every tab its shared dependencies."""
 
-        previous_column, page_column, next_column = st.columns([2, 7, 2])
-        previous_column.markdown(
-            '<span class="lv-pagination"></span>', unsafe_allow_html=True
-        )
-        previous_column.button(
-            ":material/arrow_back:",
-            disabled=exiting or current_page == 0,
-            width="stretch",
-            key=f"{key_prefix}_previous",
-            on_click=self.change_gallery_page,
-            args=(state_key, selector_key, current_page - 1),
-        )
+    def __init__(self, context: VisiaContext) -> None:
+        self.context = context
+        self.api = context.api
+        self.files = context.files
+        self.layout = context.layout
 
-        # Callbacks update state before Streamlit instantiates the next rerun.
-        page_column.selectbox(
-            "Page",
-            options=list(range(1, page_count + 1)),
-            format_func=lambda page: f"Page {page} of {page_count}",
-            index=current_page,
-            label_visibility="collapsed",
-            disabled=exiting,
-            key=selector_key,
-            on_change=self.sync_gallery_page,
-            args=(state_key, selector_key),
-        )
-
-        next_column.button(
-            ":material/arrow_forward:",
-            disabled=exiting or current_page == page_count - 1,
-            width="stretch",
-            key=f"{key_prefix}_next",
-            on_click=self.change_gallery_page,
-            args=(state_key, selector_key, current_page + 1),
-        )
-
-        return current_page
-
-    def paginated_images(
-        self, vault_images: list[Path], page_state_key: str, key_prefix: str
-    ) -> tuple[int, list[Path]]:
-        """Return the bounded page index and images on the active page."""
-        page_count = (
-            len(vault_images) + self.config.images_per_page - 1
-        ) // self.config.images_per_page
-        current_page = min(max(st.session_state[page_state_key], 0), page_count - 1)
-        st.session_state[page_state_key] = current_page
-        page_start = current_page * self.config.images_per_page
-        return (
-            current_page,
-            vault_images[page_start : page_start + self.config.images_per_page],
-        )
-
-    def render_gallery_footer(
-        self, vault_images: list[Path], page_state_key: str, key_prefix: str
-    ) -> None:
-        """Render compact pagination controls beneath a gallery."""
-        page_count = (
-            len(vault_images) + self.config.images_per_page - 1
-        ) // self.config.images_per_page
-        self.render_gallery_navigation(
-            page_count, page_state_key, f"{key_prefix}_{page_count}"
-        )
-
-    def render_filename_row(
-        self,
-        row_images: list[Path],
-        metadata_by_name: dict[str, dict] | None = None,
-        columns: int | None = None,
-    ) -> None:
-        """Render filenames and optional persisted metadata below one gallery row."""
-        filename_columns = st.columns(columns or self.gallery_column_count())
-        for column, image_path in zip(filename_columns, row_images):
-            self.render_image_name(column, image_path.name)
-            metadata = (metadata_by_name or {}).get(image_path.name)
-            if metadata:
-                with column.expander("Caption & tags", expanded=False):
-                    st.write(metadata["caption"])
-                    st.caption("  ".join(f"#{tag}" for tag in metadata["tags"]))
+    def render(self) -> None:
+        raise NotImplementedError

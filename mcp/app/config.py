@@ -15,6 +15,8 @@ class AppConfig:
     ollama_url: str
     vision_model: str
     public_base_url: str = ""
+    host: str = "0.0.0.0"
+    port: int = 8000
     allowed_formats: dict[str, str] = field(
         default_factory=lambda: {
             ".gif": "GIF",
@@ -25,6 +27,10 @@ class AppConfig:
         }
     )
     max_image_bytes: int = 50 * 1024 * 1024
+    max_fetch_images: int = 20
+    max_fetch_bytes: int = 50 * 1024 * 1024
+    max_upload_redirects: int = 3
+    display_max_edge: int = 768
     max_tags: int = 32
     search_limit_max: int = 100
     password_hash_iterations: int = 600_000
@@ -57,11 +63,6 @@ class AppConfig:
             "with",
         }
     )
-
-    @property
-    def max_base64_chars(self) -> int:
-        """Return the largest Base64 payload allowed for the byte limit."""
-        return 4 * ((self.max_image_bytes + 2) // 3)
 
     @classmethod
     def from_env(cls) -> "AppConfig":

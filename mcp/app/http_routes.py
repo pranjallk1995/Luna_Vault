@@ -1,0 +1,214 @@
+"""REST routes used by the Luna Visia Streamlit interface and public image links."""
+
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import FileResponse, JSONResponse, Response
+
+from .models import MetadataChange
+from .security import HiddenVaultAuth
+from .services import VisiaService
+
+Handler = Callable[[Request], Awaitable[Any]]
+TOKEN_HEADER = "X-Hidden-Vault-Token"
+
+
+class VisiaHTTPRoutes:
+    """Translate HTTP requests into service calls and results into JSON."""
+
+    PUBLIC_IMAGE_HEADERS = {
+        "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+    }
+
+    def __init__(self, server: FastMCP, service: VisiaService, auth: HiddenVaultAuth) -> None:
+        self.server = server
+        self.service = service
+        self.auth = auth
+        self._register()
+
+    @staticmethod
+    def error(error: Exception) -> JSONResponse:
+        status = 401 if isinstance(error, PermissionError) else 400
+        return JSONResponse({"error": str(error)}, status_code=status)
+
+    @staticmethod
+    async def payload(request: Request) -> dict[str, Any]:
+        """Parse a JSON object request body."""
+        value = await request.json()
+        if not isinstance(value, dict):
+            raise ValueError("Request body must be a JSON object.")
+        return value
+
+    @classmethod
+    async def metadata_change(cls, request: Request) -> MetadataChange:
+        payload = await cls.payload(request)
+        return MetadataChange(
+            caption=payload.get("caption"),
+            add_tags=payload.get("add_tags"),
+            remove_tags=payload.get("remove_tags"),
+        )
+
+    @staticmethod
+    def token(request: Request) -> str | None:
+        return request.headers.get(TOKEN_HEADER)
+
+    @staticmethod
+    def name(request: Request) -> str:
+        return request.path_params["name"]
+
+    def route(
+        self,
+        method: str,
+        path: str,
+        handler: Handler,
+        status: int = 200,
+        *,
+        protected: bool = False,
+    ) -> None:
+        """Register ``handler`` with optional Hidden Vault auth and error translation."""
+
+        async def endpoint(request: Request) -> Response:
+            try:
+                if protected:
+                    self.auth.require(self.token(request))
+                result = await handler(request)
+                if isinstance(result, Response):
+                    return result
+                return JSONResponse(result, status_code=status)
+            except Exception as error:
+                return self.error(error)
+
+        self.server.custom_route(path, methods=[method])(endpoint)
+
+    def _register(self) -> None:
+        self.route("GET", "/health", self.health)
+        self._register_images()
+        self._register_favorites()
+        self._register_hidden_access()
+        self._register_hidden_images()
+
+    async def health(self, request: Request) -> dict:
+        return {"status": "ok", "service": "luna-visia"}
+
+    def _register_images(self) -> None:
+        visible = self.service.visible
+
+        async def metadata(request: Request):
+            return {"images": visible.list()}
+
+        async def public_image(request: Request):
+            path = visible.public_path(self.name(request))
+            return FileResponse(
+                path,
+                headers={
+                    "Content-Disposition": f'inline; filename="{path.name}"',
+                    **self.PUBLIC_IMAGE_HEADERS,
+                },
+            )
+
+        async def upload(request: Request):
+            payload = await self.payload(request)
+            created = visible.ingest(payload["name"], payload["content_base64"], replace=False)
+            return {"status": "created", **created}
+
+        async def delete(request: Request):
+            return visible.remove(self.name(request))
+
+        async def rename(request: Request):
+            payload = await self.payload(request)
+            return visible.rename(self.name(request), payload.get("new_name", ""))
+
+        async def update_metadata(request: Request):
+            change = await self.metadata_change(request)
+            return {
+                "status": "metadata_updated",
+                **visible.update_metadata(self.name(request), change),
+            }
+
+        self.route("GET", "/api/metadata", metadata)
+        self.route("GET", "/api/public/images/{name}", public_image)
+        self.route("POST", "/api/images", upload, 201)
+        self.route("DELETE", "/api/images/{name}", delete)
+        self.route("POST", "/api/images/{name}/rename", rename)
+        self.route("POST", "/api/images/{name}/metadata", update_metadata)
+
+    def _register_favorites(self) -> None:
+        visible = self.service.visible
+
+        async def favorites(request: Request):
+            return {"images": visible.favorites()}
+
+        async def update_favorites(request: Request):
+            payload = await self.payload(request)
+            favorite = payload.get("favorite")
+            if not isinstance(favorite, bool):
+                raise ValueError("favorite must be true or false.")
+            return visible.set_favorite(payload.get("names", []), favorite)
+
+        self.route("GET", "/api/favorites", favorites)
+        self.route("POST", "/api/favorites", update_favorites)
+
+    def _register_hidden_access(self) -> None:
+        auth = self.auth
+
+        async def status(request: Request):
+            return {"configured": auth.configured()}
+
+        async def setup(request: Request):
+            payload = await self.payload(request)
+            return {"token": auth.setup(payload.get("password", ""), str(payload.get("pin", "")))}
+
+        async def login(request: Request):
+            payload = await self.payload(request)
+            return {"token": auth.login(payload.get("password", ""))}
+
+        async def reset(request: Request):
+            payload = await self.payload(request)
+            return {
+                "token": auth.reset(
+                    str(payload.get("pin", "")), payload.get("new_password", "")
+                )
+            }
+
+        async def logout(request: Request):
+            auth.logout(self.token(request))
+            return {"status": "logged_out"}
+
+        self.route("GET", "/api/hidden/status", status)
+        self.route("POST", "/api/hidden/setup", setup, 201)
+        self.route("POST", "/api/hidden/login", login)
+        self.route("POST", "/api/hidden/reset", reset)
+        self.route("POST", "/api/hidden/logout", logout)
+
+    def _register_hidden_images(self) -> None:
+        hidden = self.service.hidden
+
+        async def images(request: Request):
+            return {"images": hidden.list()}
+
+        async def update_metadata(request: Request):
+            change = await self.metadata_change(request)
+            return {
+                "status": "metadata_updated",
+                **hidden.update_metadata(self.name(request), change),
+            }
+
+        async def hide(request: Request):
+            return hidden.set_hidden((await self.payload(request)).get("names", []), True)
+
+        async def restore(request: Request):
+            return hidden.set_hidden((await self.payload(request)).get("names", []), False)
+
+        async def delete(request: Request):
+            return hidden.remove_many((await self.payload(request)).get("names", []))
+
+        self.route("GET", "/api/hidden/images", images, protected=True)
+        self.route(
+            "POST", "/api/hidden/images/{name}/metadata", update_metadata, protected=True
+        )
+        self.route("POST", "/api/hidden/hide", hide, protected=True)
+        self.route("POST", "/api/hidden/delete", delete, protected=True)
+        self.route("POST", "/api/hidden/restore", restore, protected=True)

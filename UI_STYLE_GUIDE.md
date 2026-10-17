@@ -70,7 +70,7 @@ layout.
 
 ### Rules for future changes
 
-- Before `LunaStyle.header()` runs, inject CSS only with `st.html(...)`, which
+- Before `LunaVisiaApp.render_header()` runs, inject CSS only with `st.html(...)`, which
   does not create a visible layout block.
 - Vita and Lumia must use the same `2.35rem` desktop container top padding as
   Visia. Keep Vita's header row intrinsic, matching Visia; forcing a fixed row

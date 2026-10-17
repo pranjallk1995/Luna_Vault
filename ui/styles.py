@@ -1,9 +1,5 @@
 """Shared visual styling for the Luna Visia Streamlit application."""
 
-import base64
-from pathlib import Path
-from typing import Callable
-
 import streamlit as st
 
 
@@ -463,56 +459,3 @@ class LunaStyle:
             </style>
             """,
         )
-    @staticmethod
-    def header(
-        logo_path: Path,
-        gallery_view_mode: str,
-        on_view_change: Callable[[str], None],
-    ) -> bool:
-        """Render the branded header and gallery controls."""
-        logo_base64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
-        brand_column, buttons_column = st.columns(
-            [5, 4], vertical_alignment="center", gap="medium"
-        )
-        with brand_column:
-            st.markdown(
-                f"""
-                <div class="lv-header">
-                    <img class="lv-mark" src="data:image/png;base64,{logo_base64}" alt="Luna Visia logo">
-                    <div>
-                        <h1 class="lv-title">Luna Visia</h1>
-                        <p class="lv-subtitle">Private AI-managed image storage</p>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with buttons_column:
-            grid_column, list_column, upload_column = st.columns(
-                [1, 1, 3], vertical_alignment="center", gap="small"
-            )
-            grid_column.button(
-                ":material/grid_view:",
-                help="Grid view",
-                type="primary" if gallery_view_mode == "grid" else "secondary",
-                key="use_grid_view",
-                on_click=on_view_change,
-                args=("grid",),
-                width="stretch",
-            )
-            list_column.button(
-                ":material/view_list:",
-                help="List view",
-                type="primary" if gallery_view_mode == "list" else "secondary",
-                key="use_list_view",
-                on_click=on_view_change,
-                args=("list",),
-                width="stretch",
-            )
-            return upload_column.button(
-                "Upload Images",
-                icon=":material/upload:",
-                type="primary",
-                key="open_upload_dialog",
-                width="stretch",
-            )

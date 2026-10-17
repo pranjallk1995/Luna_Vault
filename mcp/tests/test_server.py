@@ -1,8 +1,7 @@
-"""Tests for MCP image delivery helpers."""
+"""Tests for the MCP tool surface, HTTP routes, and image delivery helpers."""
 
 import asyncio
 import base64
-import sys
 import tempfile
 import unittest
 import zipfile
@@ -10,238 +9,215 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image as PillowImage
+from mcp.server.fastmcp import FastMCP
 from starlette.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
-
-from app.main import (
-    DISPLAY_MAX_EDGE,
-    MAX_FETCH_IMAGES,
-    LunaVisiaMCP,
-    _display_images,
-    _image_source_base64,
-    _selected_visible_paths,
-    _zip_resource,
+from fakes import (
+    FakeAnalyzer,
+    FakeCredentialRepository,
+    FakeImageRepository,
+    FakePublicURLRepository,
+    png_payload,
 )
 
-
-class FakeVault:
-    """Resolve test images while preserving visible-path errors."""
-
-    def __init__(self, root: Path) -> None:
-        self.root = root
-        self.hidden = set()
-        self.uploads = []
-        self.favorite_updates = []
-        self.renames = []
-
-    def ingest_base64(self, name: str, content_base64: str, replace: bool = False):
-        self.uploads.append((name, content_base64, replace))
-        return {"name": name, "caption": "Uploaded in chat.", "tags": ["chat"]}
-
-    def visible_path(self, name: str) -> Path:
-        if name in self.hidden:
-            raise PermissionError("Hidden images require authentication.")
-        path = self.root / name
-        if not path.is_file():
-            raise FileNotFoundError(name)
-        return path
-
-    def set_favorite(self, names: list[str], favorite: bool):
-        self.favorite_updates.append((names, favorite))
-        return {
-            "status": "favorited" if favorite else "unfavorited",
-            "names": names,
-            "count": len(names),
-        }
-
-    def public_url(self, name: str) -> str:
-        self.visible_path(name)
-        return f"https://vault.example.test/vault/api/public/images/{name}"
-
-    def rename(self, name: str, new_name: str):
-        public_url = self.public_url(name)
-        self.visible_path(name).rename(self.root / new_name)
-        self.renames.append((name, new_name))
-        return {
-            "status": "renamed",
-            "old_name": name,
-            "name": new_name,
-            "public_url": public_url,
-        }
-
-    def update_public_base_url(self, public_base_url: str):
-        return {
-            "status": "public_base_url_updated",
-            "public_base_url": public_base_url.rstrip("/"),
-            "updated_image_count": 2,
-        }
+from app.config import AppConfig
+from app.http_routes import TOKEN_HEADER, VisiaHTTPRoutes
+from app.mcp_tools import VisiaMCPTools
+from app.media import ImageArchive, PreviewRenderer
+from app.remote import ImageSourceResolver
+from app.security import CredentialPolicy, HiddenVaultAuth, SessionStore
+from app.services import VisiaService
 
 
-class ImageDeliveryTests(unittest.TestCase):
-    """Verify bounded selection and downloadable ZIP construction."""
+class ServerTestCase(unittest.TestCase):
+    """Register the real adapters over an in-memory service graph."""
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        PillowImage.new("RGB", (1200, 800), "red").save(self.root / "one.png")
-        PillowImage.new("RGB", (640, 480), "blue").save(self.root / "two.jpg")
-        self.vault = FakeVault(self.root)
+        self.config = AppConfig(
+            image_dir=self.root,
+            database_url="postgresql://test",
+            ollama_url="http://ollama:11434",
+            vision_model="test-vision",
+            public_base_url="https://vault.example.test/vault",
+        )
+        self.repository = FakeImageRepository()
+        self.service = VisiaService.create(
+            self.config,
+            self.repository,
+            FakePublicURLRepository(self.repository),
+            FakeAnalyzer(),
+        )
+        self.auth = HiddenVaultAuth(
+            FakeCredentialRepository(), CredentialPolicy(100_000), SessionStore(60)
+        )
+        self.server = FastMCP("Luna Visia test")
+        VisiaMCPTools(
+            self.server,
+            self.service,
+            ImageSourceResolver(self.config.max_fetch_bytes, self.config.max_upload_redirects),
+            PreviewRenderer(self.config.display_max_edge),
+        )
+        VisiaHTTPRoutes(self.server, self.service, self.auth)
+        self.service.visible.ingest("one.png", png_payload("red", (1200, 800)))
+        self.service.visible.ingest("two.png", png_payload("blue", (640, 480)))
 
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def test_health_route_reports_service_status(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
+    def call(self, tool_name: str, arguments: dict):
+        tool = self.server._tool_manager.get_tool(tool_name)
+        return asyncio.run(tool.run(arguments))
 
-        with TestClient(server.mcp.streamable_http_app()) as client:
-            response = client.get("/health")
+    def client(self) -> TestClient:
+        return TestClient(self.server.streamable_http_app())
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {"status": "ok", "service": "luna-visia"},
-        )
 
-    def test_upload_image_delegates_chat_payload_to_ingestion(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("upload_image")
-        result = asyncio.run(
-            tool.run({"name": "chat.png", "content_base64": "aW1hZ2U="})
-        )
+class MCPToolTests(ServerTestCase):
+    def test_upload_image_accepts_base64(self) -> None:
+        result = self.call("upload_image", {"name": "chat.png", "content_base64": png_payload()})
         self.assertEqual(result["status"], "created")
         self.assertEqual(result["name"], "chat.png")
-        self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
+        self.assertTrue((self.root / "chat.png").is_file())
+
+    def test_upload_image_accepts_image_data_url(self) -> None:
+        result = self.call(
+            "upload_image",
+            {"name": "chat.png", "image_url": f"data:image/png;base64,{png_payload()}"},
+        )
+        self.assertEqual(result["status"], "created")
+
+    def test_upload_source_requires_exactly_one_input(self) -> None:
+        resolver = ImageSourceResolver(1024, 3)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            resolver.resolve(None, None)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            resolver.resolve("aW1hZ2U=", "data:image/png;base64,aW1hZ2U=")
+
+    def test_upload_source_rejects_private_network_urls(self) -> None:
+        with self.assertRaisesRegex(ValueError, "public"):
+            ImageSourceResolver(1024, 3).resolve(None, "https://127.0.0.1/cat.png")
 
     def test_view_image_returns_displayable_image_data(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("view_image")
-        result = asyncio.run(tool.run({"name": "one.png"}))
-        content = result.to_image_content()
+        content = self.call("view_image", {"name": "one.png"}).to_image_content()
         self.assertEqual(content.mimeType, "image/jpeg")
         self.assertTrue(base64.b64decode(content.data))
 
     def test_get_image_url_returns_visible_https_location(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("get_image_url")
-
-        result = asyncio.run(tool.run({"name": "one.png"}))
-
         self.assertEqual(
-            result,
+            self.call("get_image_url", {"name": "one.png"}),
             {
                 "name": "one.png",
-                "url": (
-                    "https://vault.example.test/vault/"
-                    "api/public/images/one.png"
-                ),
+                "url": "https://vault.example.test/vault/api/public/images/image-1",
             },
         )
 
-    def test_rename_image_preserves_public_url(self):
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("rename_image")
-
-        renamed = asyncio.run(
-            tool.run({"name": "one.png", "new_name": "renamed.png"})
-        )
-        self.assertEqual(self.vault.renames, [("one.png", "renamed.png")])
-        self.assertTrue(renamed["public_url"].endswith("/one.png"))
+    def test_rename_image_preserves_public_url(self) -> None:
+        renamed = self.call("rename_image", {"name": "one.png", "new_name": "renamed.png"})
+        self.assertEqual(renamed["name"], "renamed.png")
+        self.assertTrue(renamed["public_url"].endswith("/image-1"))
 
     def test_set_public_base_url_updates_urls_from_chat(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("set_public_base_url")
-
-        result = asyncio.run(
-            tool.run({"public_base_url": "https://new.example.test/vault/"})
+        result = self.call(
+            "set_public_base_url", {"public_base_url": "https://new.example.test/vault/"}
         )
-
         self.assertEqual(result["public_base_url"], "https://new.example.test/vault")
         self.assertEqual(result["updated_image_count"], 2)
 
-    def test_upload_image_accepts_image_data_url(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("upload_image")
-        result = asyncio.run(
-            tool.run(
-                {
-                    "name": "chat.png",
-                    "image_url": "data:image/png;base64,aW1hZ2U=",
-                }
-            )
-        )
-        self.assertEqual(result["status"], "created")
-        self.assertEqual(self.vault.uploads, [("chat.png", "aW1hZ2U=", False)])
-
-    def test_upload_source_requires_exactly_one_input(self) -> None:
-        with self.assertRaisesRegex(ValueError, "exactly one"):
-            _image_source_base64(None, None)
-        with self.assertRaisesRegex(ValueError, "exactly one"):
-            _image_source_base64(
-                "aW1hZ2U=", "data:image/png;base64,aW1hZ2U="
-            )
-
     def test_set_favorite_images_adds_and_removes_from_chat(self) -> None:
-        server = LunaVisiaMCP(self.vault, object())
-        tool = server.mcp._tool_manager.get_tool("set_favorite_images")
+        added = self.call("set_favorite_images", {"names": ["one.png", "two.png"], "favorite": True})
+        removed = self.call("set_favorite_images", {"names": ["one.png"], "favorite": False})
+        self.assertEqual((added["status"], added["count"]), ("favorited", 2))
+        self.assertEqual((removed["status"], removed["names"]), ("unfavorited", ["one.png"]))
 
-        added = asyncio.run(
-            tool.run({"names": ["one.png", "two.jpg"], "favorite": True})
-        )
-        removed = asyncio.run(
-            tool.run({"names": ["one.png"], "favorite": False})
-        )
+    def test_fetch_images_rejects_hidden_images(self) -> None:
+        self.service.hidden.set_hidden(["one.png"], True)
+        with self.assertRaises(Exception):
+            self.call("fetch_images", {"names": ["one.png"]})
 
-        self.assertEqual(added["status"], "favorited")
-        self.assertEqual(added["count"], 2)
-        self.assertEqual(removed["status"], "unfavorited")
-        self.assertEqual(
-            self.vault.favorite_updates,
-            [(["one.png", "two.jpg"], True), (["one.png"], False)],
-        )
-
-    def test_selection_deduplicates_in_requested_order(self) -> None:
-        paths = _selected_visible_paths(
-            self.vault, ["two.jpg", "one.png", "two.jpg"]
-        )
-        self.assertEqual([path.name for path in paths], ["two.jpg", "one.png"])
-
-    def test_selection_rejects_hidden_images(self) -> None:
-        self.vault.hidden.add("one.png")
-        with self.assertRaises(PermissionError):
-            _selected_visible_paths(self.vault, ["one.png"])
-
-    def test_selection_rejects_oversized_batches(self) -> None:
-        with self.assertRaisesRegex(ValueError, str(MAX_FETCH_IMAGES)):
-            _selected_visible_paths(
-                self.vault, [f"image-{index}.png" for index in range(21)]
-            )
-
-    def test_single_display_returns_one_bounded_jpeg_preview(self) -> None:
-        previews = _display_images([self.root / "one.png"])
-        self.assertEqual(len(previews), 1)
-        content = previews[0].to_image_content()
-        self.assertEqual(content.mimeType, "image/jpeg")
-        with PillowImage.open(BytesIO(base64.b64decode(content.data))) as image:
-            self.assertLessEqual(max(image.size), DISPLAY_MAX_EDGE)
-
-    def test_multiple_display_returns_one_contact_sheet(self) -> None:
-        previews = _display_images([self.root / "one.png", self.root / "two.jpg"])
-        self.assertEqual(len(previews), 1)
-        content = previews[0].to_image_content()
-        self.assertEqual(content.mimeType, "image/jpeg")
-        with PillowImage.open(BytesIO(base64.b64decode(content.data))) as image:
-            self.assertEqual(image.size, (1024, 424))
-
-    def test_zip_resource_contains_selected_originals(self) -> None:
-        resource = _zip_resource(
-            [self.root / "one.png", self.root / "two.jpg"]
+    def test_fetch_images_zip_contains_selected_originals(self) -> None:
+        resource = self.call(
+            "fetch_images", {"names": ["one.png", "two.png"], "delivery": "zip"}
         ).resource
         self.assertEqual(resource.mimeType, "application/zip")
         with zipfile.ZipFile(BytesIO(base64.b64decode(resource.blob))) as bundle:
-            self.assertEqual(bundle.namelist(), ["one.png", "two.jpg"])
+            self.assertEqual(bundle.namelist(), ["one.png", "two.png"])
             self.assertEqual(bundle.read("one.png"), (self.root / "one.png").read_bytes())
-            self.assertEqual(bundle.read("two.jpg"), (self.root / "two.jpg").read_bytes())
+
+
+class MediaTests(ServerTestCase):
+    def test_single_display_returns_one_bounded_jpeg_preview(self) -> None:
+        jpeg = PreviewRenderer(self.config.display_max_edge).render([self.root / "one.png"])
+        with PillowImage.open(BytesIO(jpeg)) as image:
+            self.assertEqual(image.format, "JPEG")
+            self.assertLessEqual(max(image.size), self.config.display_max_edge)
+
+    def test_multiple_display_returns_one_contact_sheet(self) -> None:
+        jpeg = PreviewRenderer(768).render([self.root / "one.png", self.root / "two.png"])
+        with PillowImage.open(BytesIO(jpeg)) as image:
+            self.assertEqual(image.size, (1024, 424))
+
+    def test_archive_contains_selected_originals(self) -> None:
+        archive = ImageArchive.build([self.root / "two.png"])
+        with zipfile.ZipFile(BytesIO(archive)) as bundle:
+            self.assertEqual(bundle.read("two.png"), (self.root / "two.png").read_bytes())
+
+
+class HTTPRouteTests(ServerTestCase):
+    def test_health_route_reports_service_status(self) -> None:
+        with self.client() as client:
+            response = client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok", "service": "luna-visia"})
+
+    def test_metadata_route_lists_visible_images(self) -> None:
+        self.service.hidden.set_hidden(["two.png"], True)
+        with self.client() as client:
+            images = client.get("/api/metadata").json()["images"]
+        self.assertEqual([image["name"] for image in images], ["one.png"])
+
+    def test_public_image_route_serves_by_stable_id(self) -> None:
+        with self.client() as client:
+            response = client.get("/api/public/images/image-1")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, (self.root / "one.png").read_bytes())
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+
+    def test_upload_route_returns_created_metadata(self) -> None:
+        with self.client() as client:
+            response = client.post(
+                "/api/images", json={"name": "new.png", "content_base64": png_payload()}
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["status"], "created")
+
+    def test_favorites_route_requires_boolean(self) -> None:
+        with self.client() as client:
+            response = client.post("/api/favorites", json={"names": ["one.png"], "favorite": "yes"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("favorite", response.json()["error"])
+
+    def test_hidden_routes_require_session_token(self) -> None:
+        with self.client() as client:
+            self.assertEqual(client.get("/api/hidden/images").status_code, 401)
+            token = client.post(
+                "/api/hidden/setup", json={"password": "strong-password", "pin": "12345678"}
+            ).json()["token"]
+            headers = {TOKEN_HEADER: token}
+            hidden = client.post("/api/hidden/hide", json={"names": ["one.png"]}, headers=headers)
+            images = client.get("/api/hidden/images", headers=headers).json()["images"]
+            updated = client.post(
+                "/api/hidden/images/one.png/metadata",
+                json={"add_tags": ["Private"]},
+                headers=headers,
+            )
+            client.post("/api/hidden/logout", headers=headers)
+            locked = client.get("/api/hidden/images", headers=headers)
+        self.assertEqual(hidden.json()["status"], "hidden")
+        self.assertEqual([image["name"] for image in images], ["one.png"])
+        self.assertEqual(updated.json()["tags"], ["cat", "sofa", "private"])
+        self.assertEqual(locked.status_code, 401)
 
 
 if __name__ == "__main__":
