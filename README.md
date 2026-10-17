@@ -291,16 +291,19 @@ change so the client refreshes its discovered tool catalog.
 
 ### UI modules
 
-- `ui/app.py` - the small Streamlit entry point: creates the four tabs, loads image metadata, and passes data to each page.
-- `ui/api.py` - centralizes UI-facing HTTP routes, authentication headers, timeouts, and response handling.
-- `ui/config.py` - reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
-- `ui/styles.py` - maintains the shared dark visual system, component spacing, and control styling.
-- `ui/tabs/shared.py` - shared session state, thumbnail caching, pagination, filename display, and gallery utilities.
-- `ui/tabs/gallery.py` - reusable selectable-gallery structure shared by Favorites and Hidden Images.
-- `ui/tabs/upload_page.py` - upload handling, progress feedback, and display of newly generated captions and tags.
-- `ui/tabs/view_page.py` - visible-image search, gallery display, full-image viewing, downloads, and deletion.
-- `ui/tabs/favorites_page.py` - persisted favorite-image browsing and add/remove workflows.
-- `ui/tabs/hidden_page.py` - hidden-vault authentication, hiding/restoring images, and hidden-image viewing, downloads, and deletion.
+- `ui/app.py` - `LunaVisiaApp` composition root: header, `GalleryNavigation`, and the upload dialog; each section is a tab class.
+- `ui/api.py` - `LunaVisiaAPI` keeps backend routes, the Hidden Vault token header, timeouts, and error text out of the views.
+- `ui/config.py` - `UIConfig` reads UI environment settings such as the image directory, API URL, gallery size, and supported image formats.
+- `ui/state.py` - `SessionState` owns session-state defaults and cross-view transitions (pending delete/hide, gallery refresh, Hidden Vault token).
+- `ui/images.py` - `ImageFiles` (vault file listing and cached thumbnails, previews, and size facts) and `ImageCollection` (files plus metadata, search filtering).
+- `ui/styles.py` - `LunaStyle` maintains the shared dark visual system, component spacing, and control styling.
+- `ui/tabs/shared.py` - `VisiaContext` (shared dependencies), `VisiaTab` base class, `ResponsiveLayout`, `SearchFilter`, and `ImageLabel`.
+- `ui/tabs/gallery.py` - `ImageGallery`, the grid/list gallery with favorite overlay, item menu, and confirmation dialogs used by every section.
+- `ui/tabs/actions.py` - `GalleryActions`, `FavoriteActions`, and `HiddenActions`: what each section's gallery may do with an image.
+- `ui/tabs/pager.py` - `GalleryPager`, pagination with the animated page transition.
+- `ui/tabs/preview_dialog.py` - `ImagePreviewDialog`, full-size viewing with inline caption and tag editing.
+- `ui/tabs/view_tab.py`, `favorites_tab.py`, `hidden_tab.py` - the three gallery sections; `hidden_tab.py` also holds `HiddenAccessGate` (setup, unlock, reset).
+- `ui/tabs/upload_dialog.py` - `UploadDialog`: upload handling, progress feedback, retries, and newly generated captions and tags.
 - `ui/tabs/__init__.py` - marks the tab-module directory as a Python package.
 - `ui/.streamlit/config.toml` - Streamlit theme settings.
 - `ui/requirements.txt` - Python dependencies used by the UI container.
@@ -308,14 +311,21 @@ change so the client refreshes its discovered tool catalog.
 
 ### MCP modules
 
-- `mcp/app/main.py` - FastMCP server entry point and the public image-management tools.
-- `mcp/app/vault.py` - image ingestion, metadata backfill, safe file operations, and search orchestration.
-- `mcp/app/vision.py` - Ollama vision requests plus validation and normalization of captions and tags.
-- `mcp/app/database.py` - PostgreSQL schema setup and metadata/search-index persistence and queries.
-- `mcp/app/security.py` - password and PIN handling plus hidden-vault authentication and sessions.
+- `mcp/app/main.py` - `LunaVisiaApplication` composition root: builds the database, repositories, services, and server, then runs it.
+- `mcp/app/mcp_tools.py` - `VisiaMCPTools`, the public MCP image-management tools (hidden images are never reachable here).
+- `mcp/app/http_routes.py` - `VisiaHTTPRoutes`, the REST routes used by the UI and public image links, with uniform error translation and Hidden Vault session checks.
+- `mcp/app/services.py` - use cases: `VisibleImageService` and `HiddenImageService` (sharing `ImageCollectionService`), `ImageIndexer` (analysis and backfill), `SearchService`, `PublicURLService`, and the `VisiaService` facade.
+- `mcp/app/repositories.py` - PostgreSQL persistence: `ImageRepository`, `PublicURLRepository`, and `CredentialRepository`.
+- `mcp/app/database.py` - `Database` connection handling and the idempotent schema.
+- `mcp/app/storage.py` - `ImageStorage`, safe vault paths plus write, rename, and delete operations that roll back if metadata persistence fails.
+- `mcp/app/media.py` - upload byte validation, chat previews and contact sheets, and ZIP bundles.
+- `mcp/app/remote.py` - `ImageSourceResolver` for Base64, data-URL, and SSRF-guarded HTTPS upload sources.
+- `mcp/app/models.py` - `ImageAnalysis`, `ImageRecord`, `MetadataChange`, and `MetadataRules` (caption, tag, and search-text normalization).
+- `mcp/app/vision.py` - `OllamaVisionAnalyzer`, local vision-model requests.
+- `mcp/app/security.py` - `HiddenVaultAuth` with `CredentialPolicy` (password/PIN validation and hashing) and `SessionStore` (in-memory sessions).
 - `mcp/app/config.py` - reads and validates MCP settings, including database, image, Ollama, and vision-model configuration.
 - `mcp/app/__init__.py` - marks the MCP application directory as a Python package.
-- `mcp/tests/` - automated tests for vault behavior, metadata processing, and security safeguards.
+- `mcp/tests/` - automated tests for the services, MCP tools, HTTP routes, media helpers, and security safeguards, using in-memory fakes from `fakes.py`.
 - `mcp/requirements.txt` - Python dependencies used by the MCP container.
 - `mcp/Dockerfile` - builds the MCP container image.
 
