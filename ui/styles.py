@@ -263,6 +263,8 @@ class LunaStyle:
             div[data-testid="stExpander"] { overflow:hidden; border-color:var(--lv-border); border-radius:.35rem; background:rgba(255,255,255,.045); }
             div[data-testid="stAlert"] { border-radius:.85rem; border-color:var(--lv-border); }
             div[data-testid="stForm"] { padding:1.25rem; border-color:var(--lv-border); border-radius:14px; background:rgba(255,255,255,.055); }
+            [data-testid="InputInstructions"] span:first-child { display:none!important; }
+            [data-testid="InputInstructions"] span:nth-child(2)::before { display:none!important; }
             div[data-testid="stPopover"] button {
                 width:1.75rem!important; min-width:1.75rem!important;
                 height:2rem!important; min-height:2rem!important; padding:0!important;
